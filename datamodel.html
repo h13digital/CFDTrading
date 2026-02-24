@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VESTRADO · Data Pipeline</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
+  <style>
+    /* ═══════════════════════════════════════════════
+       DESIGN TOKENS
+    ═══════════════════════════════════════════════ */
+    :root {
+      --bg-base:    #070c18;
+      --bg-surface: #0d1526;
+      --bg-card:    #111e35;
+      --bg-hover:   #162440;
+      --border:     rgba(255,255,255,0.07);
+      --text-primary:   #e8edf5;
+      --text-secondary: #6b7fa3;
+      --text-muted:     #3a4a6b;
+      --bull:  #10b981;
+      --bear:  #ef4444;
+      --warn:  #f59e0b;
+      --cyan:  #06b6d4;
+      --blue:  #3b82f6;
+      --purple:#8b5cf6;
+
+      /* Node-specific colors */
+      --crm-color:    #3b82f6;
+      --web-color:    #6366f1;
+      --ads-color:    #ec4899;
+      --seg-color:    #8b5cf6;
+      --sup-color:    #10b981;
+      --bq-color:     #f59e0b;
+      --looker-color: #f97316;
+
+      --sidebar-w: 220px;
+      --header-h: 56px;
+      --radius-sm: 6px; --radius-md: 10px; --radius-lg: 16px;
+      --font-display: 'Barlow Condensed', sans-serif;
+      --font-body:    'DM Sans', sans-serif;
+      --font-mono:    'JetBrains Mono', monospace;
+      --transition: 150ms ease;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 14px; }
+    body {
+      font-family: var(--font-body);
+      background: var(--bg-base);
+      color: var(--text-primary);
+      display: flex; min-height: 100vh; overflow-x: hidden;
+    }
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(6,182,212,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(6,182,212,0.02) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none; z-index: 0;
+    }
+
+    /* ═══ SHARED SIDEBAR ═══ */
+    .sidebar { width: var(--sidebar-w); min-height: 100vh; background: var(--bg-surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; left: 0; top: 0; z-index: 100; }
+    .sidebar-logo { padding: 20px 18px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+    .logo-mark { width: 32px; height: 32px; background: linear-gradient(135deg, var(--cyan), var(--blue)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-size: 16px; font-weight: 800; color: white; flex-shrink: 0; box-shadow: 0 0 16px rgba(6,182,212,0.4); }
+    .logo-text { font-family: var(--font-display); font-size: 18px; font-weight: 700; }
+    .logo-sub  { font-size: 10px; color: var(--text-secondary); letter-spacing: 1px; text-transform: uppercase; }
+    .sidebar-section { padding: 16px 12px 8px; font-size: 10px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-muted); }
+    .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 14px; margin: 2px 8px; border-radius: var(--radius-sm); color: var(--text-secondary); text-decoration: none; font-size: 13px; font-weight: 500; cursor: pointer; transition: all var(--transition); border: 1px solid transparent; }
+    .nav-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .nav-item.active { background: rgba(6,182,212,0.1); color: var(--cyan); border-color: rgba(6,182,212,0.2); }
+    .nav-item .nav-icon { width: 18px; text-align: center; font-size: 13px; flex-shrink: 0; }
+    .nav-badge { margin-left: auto; background: var(--bear); color: white; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 10px; }
+    .nav-badge.warn { background: var(--warn); color: #000; }
+    .sidebar-footer { margin-top: auto; padding: 16px; border-top: 1px solid var(--border); }
+    .theme-toggle { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; color: var(--text-secondary); font-size: 12px; width: 100%; transition: all var(--transition); }
+
+    /* ═══ MAIN LAYOUT ═══ */
+    .main-wrapper { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; position: relative; z-index: 1; }
+    .topbar { height: var(--header-h); background: var(--bg-surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 24px; gap: 16px; position: sticky; top: 0; z-index: 50; }
+    .topbar-title { font-family: var(--font-display); font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
+    .topbar-sub { font-size: 12px; color: var(--text-secondary); margin-top: 1px; }
+    .topbar-spacer { flex: 1; }
+    .content { padding: 24px; flex: 1; }
+
+    /* ═══════════════════════════════════════════════
+       PIPELINE DIAGRAM AREA
+    ═══════════════════════════════════════════════ */
+    .pipeline-wrap {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 30px 20px;
+      margin-bottom: 24px; position: relative; overflow: hidden;
+    }
+    .pipeline-wrap::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(circle at 50% 50%, rgba(6,182,212,0.04) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    /* Pipeline Controls */
+    .pipeline-controls {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 24px; flex-wrap: wrap;
+    }
+    .ctrl-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 7px 14px; border: 1px solid var(--border);
+      background: var(--bg-surface); border-radius: var(--radius-sm);
+      color: var(--text-secondary); font-family: var(--font-body);
+      font-size: 12px; cursor: pointer; transition: all var(--transition);
+    }
+    .ctrl-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+    .ctrl-btn.running { border-color: var(--bull); color: var(--bull); background: rgba(16,185,129,0.08); }
+    .ctrl-btn.paused  { border-color: var(--warn); color: var(--warn); background: rgba(245,158,11,0.08); }
+
+    .flow-toggle {
+      display: flex; align-items: center; gap: 6px;
+      padding: 4px 10px; border: 1px solid var(--border);
+      background: var(--bg-surface); border-radius: 20px;
+      font-size: 11px; cursor: pointer; transition: all var(--transition);
+    }
+    .flow-toggle input[type="checkbox"] { width: 14px; height: 14px; accent-color: var(--cyan); cursor: pointer; }
+    .flow-toggle:hover { border-color: rgba(6,182,212,0.3); }
+    .flow-toggle.active { border-color: rgba(6,182,212,0.4); background: rgba(6,182,212,0.08); color: var(--cyan); }
+
+    /* ─── SVG PIPELINE DIAGRAM ─── */
+    .pipeline-svg-wrap { width: 100%; overflow-x: auto; }
+    .pipeline-svg { width: 100%; max-width: 1000px; display: block; margin: 0 auto; }
+
+    /* Node styles */
+    .pipeline-node {
+      cursor: pointer; transition: all 200ms ease;
+    }
+    .pipeline-node:hover .node-bg { filter: brightness(1.2); }
+    .pipeline-node.selected .node-bg { filter: brightness(1.3); }
+    .pipeline-node.selected .node-border { stroke-width: 2.5; opacity: 1; }
+
+    /* Packet animation */
+    @keyframes movePacket1 {
+      0%   { offset-distance: 0%; opacity: 1; }
+      85%  { opacity: 1; }
+      100% { offset-distance: 100%; opacity: 0; }
+    }
+    .packet { animation: movePacket1 3s linear infinite; }
+
+    /* ═══════════════════════════════════════════════
+       INFO PANEL (side drawer)
+    ═══════════════════════════════════════════════ */
+    .info-drawer {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-md); padding: 0;
+      margin-bottom: 24px; overflow: hidden;
+      transition: all 200ms ease;
+    }
+    .info-drawer-header {
+      padding: 14px 18px;
+      display: flex; align-items: center; gap: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .info-drawer-icon { font-size: 16px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 6px; flex-shrink: 0; }
+    .info-drawer-title { font-family: var(--font-display); font-size: 18px; font-weight: 700; }
+    .info-drawer-sub   { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+    .info-drawer-close { margin-left: auto; background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px; transition: color var(--transition); padding: 0; }
+    .info-drawer-close:hover { color: var(--text-primary); }
+    .info-drawer-body  { padding: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+    .info-code-block {
+      background: #070c18; border: 1px solid rgba(255,255,255,0.08);
+      border-radius: var(--radius-sm); padding: 14px;
+      font-family: var(--font-mono); font-size: 11.5px; line-height: 1.7;
+      overflow-x: auto; white-space: pre;
+      color: var(--text-secondary);
+    }
+    .json-key    { color: #f472b6; }
+    .json-string { color: #10b981; }
+    .json-number { color: #60a5fa; }
+    .sql-kw      { color: var(--cyan); font-weight: 600; }
+    .sql-val     { color: #10b981; }
+
+    .info-meta { display: flex; flex-direction: column; gap: 10px; }
+    .meta-row {
+      display: flex; gap: 10px; align-items: flex-start;
+    }
+    .meta-label {
+      width: 80px; flex-shrink: 0; font-size: 10px; font-weight: 700;
+      letter-spacing: 1px; text-transform: uppercase; color: var(--text-secondary);
+      padding-top: 2px;
+    }
+    .meta-value { font-size: 12.5px; color: var(--text-primary); line-height: 1.5; flex: 1; }
+
+    /* Status badge */
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600;
+    }
+    .status-badge.active { background: rgba(16,185,129,0.12); color: var(--bull); border: 1px solid rgba(16,185,129,0.3); }
+    .status-badge.warning{ background: rgba(245,158,11,0.12); color: var(--warn); border: 1px solid rgba(245,158,11,0.3); }
+    .status-badge-dot { width: 6px; height: 6px; border-radius: 50%; }
+    .status-badge.active .status-badge-dot { background: var(--bull); animation: pulse-dot 2s infinite; }
+
+    @keyframes pulse-dot {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.5); }
+      50% { box-shadow: 0 0 0 3px rgba(16,185,129,0); }
+    }
+
+    /* ═══════════════════════════════════════════════
+       EXPLANATION SECTION
+    ═══════════════════════════════════════════════ */
+    .explanation-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 16px; margin-bottom: 24px;
+    }
+    .phase-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-md); padding: 20px; border-top: 3px solid;
+    }
+    .phase-card.p1 { border-top-color: var(--seg-color); }
+    .phase-card.p2 { border-top-color: var(--bq-color); }
+    .phase-card.p3 { border-top-color: var(--looker-color); }
+
+    .phase-card-title {
+      font-family: var(--font-display); font-size: 18px; font-weight: 700; margin-bottom: 4px;
+    }
+    .p1 .phase-card-title { color: var(--seg-color); }
+    .p2 .phase-card-title { color: var(--bq-color); }
+    .p3 .phase-card-title { color: var(--looker-color); }
+
+    .phase-card-sub { font-size: 11px; color: var(--text-secondary); margin-bottom: 14px; }
+    .phase-item { display: flex; gap: 10px; margin-bottom: 10px; font-size: 12.5px; }
+    .phase-item-icon { width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
+
+    /* ROI strip */
+    .roi-strip {
+      background: linear-gradient(135deg, rgba(16,185,129,0.08), rgba(6,182,212,0.08));
+      border: 1px solid rgba(16,185,129,0.2);
+      border-radius: var(--radius-md); padding: 20px;
+      margin-bottom: 24px;
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px;
+    }
+    .roi-item { text-align: center; }
+    .roi-value { font-family: var(--font-display); font-size: 32px; font-weight: 700; color: var(--bull); }
+    .roi-label { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+
+    /* ═══ SCROLLBAR ═══ */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-base); }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+    /* ═══ RESPONSIVE ═══ */
+    @media (max-width: 768px) {
+      .sidebar { width: 60px; }
+      .logo-text, .logo-sub, .nav-item span:not(.nav-icon), .sidebar-section, .nav-badge { display: none; }
+      .main-wrapper { margin-left: 60px; }
+      .info-drawer-body { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ═══ SIDEBAR ═══ -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">V</div>
+      <div>
+        <div class="logo-text">VESTRADO</div>
+        <div class="logo-sub">ALFX Marketing</div>
+      </div>
+    </div>
+    <div class="sidebar-section">Overview</div>
+    <a href="index.html"          class="nav-item"><i class="nav-icon fas fa-th-large"></i><span>Dashboard</span></a>
+    <div class="sidebar-section">Analytics</div>
+    <a href="commandcenter.html"  class="nav-item"><i class="nav-icon fas fa-crosshairs"></i><span>Command Center</span></a>
+    <a href="datamodel.html"      class="nav-item active"><i class="nav-icon fas fa-project-diagram"></i><span>Data Pipeline</span></a>
+    <div class="sidebar-section">Monitoring</div>
+    <a href="index.html"          class="nav-item"><i class="nav-icon fas fa-satellite-dish"></i><span>Real-time Alerts</span><span class="nav-badge warn">2</span></a>
+    <a href="#"                   class="nav-item"><i class="nav-icon fas fa-file-alt"></i><span>Reports</span></a>
+    <div class="sidebar-section">Settings</div>
+    <a href="#"                   class="nav-item"><i class="nav-icon fas fa-sliders-h"></i><span>Thresholds</span></a>
+    <a href="#"                   class="nav-item"><i class="nav-icon fas fa-user-circle"></i><span>Account</span></a>
+    <div class="sidebar-footer">
+      <button class="theme-toggle"><i class="fas fa-adjust"></i><span>Toggle Theme</span></button>
+    </div>
+  </aside>
+
+  <!-- ═══ MAIN ═══ -->
+  <div class="main-wrapper">
+    <header class="topbar">
+      <div>
+        <div class="topbar-title">Data Pipeline</div>
+        <div class="topbar-sub">CRM + Website + Ads → Segment / Supermetrics → BigQuery → Looker Studio</div>
+      </div>
+      <div class="topbar-spacer"></div>
+      <a href="index.html" style="display:flex; align-items:center; gap:6px; padding:7px 14px; background:rgba(6,182,212,0.1); border:1px solid rgba(6,182,212,0.3); border-radius:var(--radius-sm); color:var(--cyan); font-size:12px; font-weight:500; text-decoration:none;">
+        <i class="fas fa-th-large"></i> Open Dashboard
+      </a>
+    </header>
+
+    <main class="content">
+
+      <!-- ════════════════════════════════
+           PIPELINE DIAGRAM
+      ════════════════════════════════ -->
+      <div class="pipeline-wrap">
+
+        <!-- Controls -->
+        <div class="pipeline-controls">
+          <button class="ctrl-btn running" id="playBtn" onclick="togglePlay()">
+            <i id="playIcon" class="fas fa-pause"></i>
+            <span id="playLabel">Pause</span>
+          </button>
+          <button class="ctrl-btn" onclick="resetAnim()">
+            <i class="fas fa-redo"></i> Reset
+          </button>
+          <div style="width:1px; height:20px; background:var(--border); margin:0 4px;"></div>
+          <span style="font-size:11px; color:var(--text-muted);">Toggle flows:</span>
+          <div class="flow-toggle active" id="ft-crm"><input type="checkbox" checked onchange="toggleFlow('crm', this)"> CRM→Seg</div>
+          <div class="flow-toggle active" id="ft-web"><input type="checkbox" checked onchange="toggleFlow('web', this)"> Web→Seg</div>
+          <div class="flow-toggle active" id="ft-ads"><input type="checkbox" checked onchange="toggleFlow('ads', this)"> Ads→Sup</div>
+          <div class="flow-toggle active" id="ft-seg"><input type="checkbox" checked onchange="toggleFlow('seg', this)"> Seg→BQ</div>
+          <div class="flow-toggle active" id="ft-sup"><input type="checkbox" checked onchange="toggleFlow('sup', this)"> Sup→BQ</div>
+          <div class="flow-toggle active" id="ft-bq"><input type="checkbox" checked onchange="toggleFlow('bq', this)"> BQ→Looker</div>
+        </div>
+
+        <!-- SVG Diagram -->
+        <div class="pipeline-svg-wrap">
+          <svg class="pipeline-svg" viewBox="0 0 960 320" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <!-- Arrow markers for each flow color -->
+              <marker id="arr-crm" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                <path d="M0,0 L0,6 L8,3 z" fill="#3b82f6" opacity="0.7"/>
+              </marker>
+              <marker id="arr-web" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                <path d="M0,0 L0,6 L8,3 z" fill="#6366f1" opacity="0.7"/>
+              </marker>
+              <marker id="arr-ads" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                <path d="M0,0 L0,6 L8,3 z" fill="#ec4899" opacity="0.7"/>
+              </marker>
+              <marker id="arr-seg" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                <path d="M0,0 L0,6 L8,3 z" fill="#8b5cf6" opacity="0.7"/>
+              </marker>
+              <marker id="arr-sup" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                <path d="M0,0 L0,6 L8,3 z" fill="#10b981" opacity="0.7"/>
+              </marker>
+              <marker id="arr-bq" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+                <path d="M0,0 L0,6 L8,3 z" fill="#f59e0b" opacity="0.7"/>
+              </marker>
+
+              <!-- Glow filters -->
+              <filter id="glow-blue">  <feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+              <filter id="glow-purple"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+              <filter id="glow-cyan">  <feGaussianBlur stdDeviation="4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+
+              <!-- Packet path definitions (for animateMotion) -->
+              <path id="path-crm" d="M 160 100 C 230 100 260 155 330 155" fill="none"/>
+              <path id="path-web" d="M 160 160 C 230 160 270 160 330 160" fill="none"/>
+              <path id="path-ads" d="M 160 220 C 230 220 260 170 330 170" fill="none"/>
+              <path id="path-seg" d="M 460 160 L 580 160" fill="none"/>
+              <path id="path-sup" d="M 460 230 C 500 230 540 190 580 180" fill="none"/>
+              <path id="path-bq"  d="M 720 170 L 850 170" fill="none"/>
+            </defs>
+
+            <!-- ────────── FLOW PATHS (visible lines) ────────── -->
+            <!-- CRM → Segment -->
+            <path id="line-crm" class="flow-line" d="M 160 100 C 230 100 260 155 330 155"
+              fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-dasharray="6 4"
+              opacity="0.5" marker-end="url(#arr-crm)"/>
+            <!-- Web → Segment -->
+            <path id="line-web" class="flow-line" d="M 160 160 C 230 160 270 160 330 160"
+              fill="none" stroke="#6366f1" stroke-width="1.5" stroke-dasharray="6 4"
+              opacity="0.5" marker-end="url(#arr-web)"/>
+            <!-- Ads → Supermetrics -->
+            <path id="line-ads" class="flow-line" d="M 160 220 C 230 220 260 235 330 235"
+              fill="none" stroke="#ec4899" stroke-width="1.5" stroke-dasharray="6 4"
+              opacity="0.5" marker-end="url(#arr-ads)"/>
+            <!-- Segment → BigQuery -->
+            <path id="line-seg" class="flow-line" d="M 460 155 C 510 155 540 165 580 165"
+              fill="none" stroke="#8b5cf6" stroke-width="2" stroke-dasharray="6 4"
+              opacity="0.5" marker-end="url(#arr-seg)"/>
+            <!-- Supermetrics → BigQuery -->
+            <path id="line-sup" class="flow-line" d="M 460 230 C 510 230 540 195 580 185"
+              fill="none" stroke="#10b981" stroke-width="2" stroke-dasharray="6 4"
+              opacity="0.5" marker-end="url(#arr-sup)"/>
+            <!-- BigQuery → Looker -->
+            <path id="line-bq" class="flow-line" d="M 720 170 L 850 170"
+              fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray="6 4"
+              opacity="0.5" marker-end="url(#arr-bq)"/>
+
+            <!-- ────────── ANIMATED PACKETS ────────── -->
+            <!-- CRM packet -->
+            <circle id="pkt-crm" r="7" fill="#3b82f6" filter="url(#glow-blue)" opacity="0">
+              <animateMotion id="anim-crm" dur="2.5s" repeatCount="indefinite" begin="0s">
+                <mpath href="#path-crm"/>
+              </animateMotion>
+              <animate attributeName="opacity" values="0;1;1;1;0" keyTimes="0;0.1;0.7;0.9;1" dur="2.5s" repeatCount="indefinite" begin="0s"/>
+            </circle>
+
+            <!-- Web packet -->
+            <circle id="pkt-web" r="7" fill="#6366f1" filter="url(#glow-purple)" opacity="0">
+              <animateMotion id="anim-web" dur="2.8s" repeatCount="indefinite" begin="0.8s">
+                <mpath href="#path-web"/>
+              </animateMotion>
+              <animate attributeName="opacity" values="0;1;1;1;0" keyTimes="0;0.1;0.7;0.9;1" dur="2.8s" repeatCount="indefinite" begin="0.8s"/>
+            </circle>
+
+            <!-- Ads packet -->
+            <circle id="pkt-ads" r="7" fill="#ec4899" opacity="0">
+              <animateMotion id="anim-ads" dur="3s" repeatCount="indefinite" begin="1.5s">
+                <mpath href="#path-ads"/>
+              </animateMotion>
+              <animate attributeName="opacity" values="0;1;1;1;0" keyTimes="0;0.1;0.7;0.9;1" dur="3s" repeatCount="indefinite" begin="1.5s"/>
+            </circle>
+
+            <!-- Seg → BQ packet -->
+            <circle id="pkt-seg" r="8" fill="#8b5cf6" filter="url(#glow-purple)" opacity="0">
+              <animateMotion id="anim-seg" dur="3.5s" repeatCount="indefinite" begin="0.5s">
+                <mpath href="#path-seg"/>
+              </animateMotion>
+              <animate attributeName="opacity" values="0;1;1;1;0" keyTimes="0;0.08;0.8;0.92;1" dur="3.5s" repeatCount="indefinite" begin="0.5s"/>
+            </circle>
+
+            <!-- Sup → BQ packet -->
+            <circle id="pkt-sup" r="8" fill="#10b981" opacity="0">
+              <animateMotion id="anim-sup" dur="3.2s" repeatCount="indefinite" begin="1.2s">
+                <mpath href="#path-sup"/>
+              </animateMotion>
+              <animate attributeName="opacity" values="0;1;1;1;0" keyTimes="0;0.08;0.8;0.92;1" dur="3.2s" repeatCount="indefinite" begin="1.2s"/>
+            </circle>
+
+            <!-- BQ → Looker packet -->
+            <circle id="pkt-bq" r="8" fill="#f59e0b" opacity="0">
+              <animateMotion id="anim-bq" dur="4s" repeatCount="indefinite" begin="0.3s">
+                <mpath href="#path-bq"/>
+              </animateMotion>
+              <animate attributeName="opacity" values="0;1;1;1;0" keyTimes="0;0.08;0.8;0.92;1" dur="4s" repeatCount="indefinite" begin="0.3s"/>
+            </circle>
+
+            <!-- ────────── LAYER LABELS ────────── -->
+            <text x="80"  y="30" text-anchor="middle" font-family="'Barlow Condensed', sans-serif" font-size="11" fill="#3a4a6b" font-weight="600" letter-spacing="1">SOURCES</text>
+            <text x="390" y="30" text-anchor="middle" font-family="'Barlow Condensed', sans-serif" font-size="11" fill="#3a4a6b" font-weight="600" letter-spacing="1">COLLECTION</text>
+            <text x="645" y="30" text-anchor="middle" font-family="'Barlow Condensed', sans-serif" font-size="11" fill="#3a4a6b" font-weight="600" letter-spacing="1">WAREHOUSE</text>
+            <text x="900" y="30" text-anchor="middle" font-family="'Barlow Condensed', sans-serif" font-size="11" fill="#3a4a6b" font-weight="600" letter-spacing="1">OUTPUT</text>
+
+            <!-- Vertical separator lines -->
+            <line x1="210" y1="42" x2="210" y2="280" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+            <line x1="500" y1="42" x2="500" y2="280" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+            <line x1="790" y1="42" x2="790" y2="280" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+
+            <!-- ────────── NODES ────────── -->
+            <!-- SOURCE 1: CRM -->
+            <g class="pipeline-node" id="node-crm" onclick="showNodeInfo('crm')" transform="translate(80,100)">
+              <rect class="node-bg" x="-60" y="-35" width="120" height="70" rx="10"
+                fill="#0d1526" stroke="#3b82f6" stroke-width="1.5" stroke-opacity="0.6"/>
+              <text y="-10" text-anchor="middle" font-size="24" fill="#3b82f6">⬡</text>
+              <text y="-6" text-anchor="middle" font-size="22">👥</text>
+              <text y="8"  text-anchor="middle" font-family="'Barlow Condensed', sans-serif" font-size="13" fill="#e8edf5" font-weight="700">CRM</text>
+              <text y="20" text-anchor="middle" font-size="9" fill="#6b7fa3">Salesforce / HubSpot</text>
+            </g>
+
+            <!-- SOURCE 2: Website/App -->
+            <g class="pipeline-node" id="node-web" onclick="showNodeInfo('web')" transform="translate(80,160)">
+              <rect class="node-bg" x="-60" y="-30" width="120" height="60" rx="10"
+                fill="#0d1526" stroke="#6366f1" stroke-width="1.5" stroke-opacity="0.6"/>
+              <text y="4"  text-anchor="middle" font-size="20">🌐</text>
+              <text y="18" text-anchor="middle" font-family="'Barlow Condensed', sans-serif" font-size="13" fill="#e8edf5" font-weight="700">WEBSITE / APP</text>
+            </g>
+
+            <!-- SOURCE 3: Ads Platforms -->
+            <g class="pipeline-node" id="node-ads" onclick="showNodeInfo('ads')" transform="translate(80,230)">
+              <rect class="node-bg" x="-60" y="-30" width="120" height="60" rx="10"
+                fill="#0d1526" stroke="#ec4899" stroke-width="1.5" stroke-opacity="0.6"/>
+              <text y="4"  text-anchor="middle" font-size="20">📢</text>
+              <text y="18" text-anchor="middle" font-family="'Barlow Condensed', sans-serif" font-size="13" fill="#e8edf5" font-weight="700">ADS PLATFORMS</text>
+            </g>
+
+            <!-- COLLECTION 1: Segment CDP -->
+            <g class="pipeline-node" id="node-seg" onclick="showNodeInfo('seg')" transform="translate(390,160)">
+              <rect class="node-bg" x="-65" y="-45" width="130" height="90" rx="12"
+                fill="#0d1526" stroke="#8b5cf6" stroke-width="1.5" stroke-opacity="0.7"/>
+              <text y="-18" text-anchor="middle" font-size="26">🔀</text>
+              <text y="2"  text-anchor="middle" font-family="'Barlow Condensed', sans-serif" font-size="16" fill="#8b5cf6" font-weight="800">SEGMENT</text>
+              <text y="16" text-anchor="middle" font-size="9" fill="#6b7fa3">Customer Data Platform</text>
+              <text y="28" text-anchor="middle" font-size="9" fill="#6b7fa3">Real-time · Unified IDs</text>
+              <!-- Active dot -->
+              <circle cx="48" cy="-34" r="5" fill="#10b981">
+                <animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite"/>
+              </circle>
+            </g>
+
+            <!-- COLLECTION 2: Supermetrics -->
+            <g class="pipeline-node" id="node-sup" onclick="showNodeInfo('sup')" transform="translate(390,240)">
+              <rect class="node-bg" x="-65" y="-40" width="130" height="80" rx="12"
+                fill="#0d1526" stroke="#10b981" stroke-width="1.5" stroke-opacity="0.7"/>
+              <text y="-12" text-anchor="middle" font-size="22">📊</text>
+              <text y="6"  text-anchor="middle" font-family="'Barlow Condensed', sans-serif" font-size="15" fill="#10b981" font-weight="800">SUPERMETRICS</text>
+              <text y="20" text-anchor="middle" font-size="9" fill="#6b7fa3">Marketing ETL · Daily sync</text>
+              <circle cx="48" cy="-28" r="5" fill="#10b981">
+                <animate attributeName="opacity" values="1;0.3;1" dur="2.5s" repeatCount="indefinite"/>
+              </circle>
+            </g>
+
+            <!-- WAREHOUSE: BigQuery -->
+            <g class="pipeline-node" id="node-bq" onclick="showNodeInfo('bq')" transform="translate(645,175)">
+              <rect class="node-bg" x="-75" y="-60" width="150" height="120" rx="14"
+                fill="#0d1526" stroke="#f59e0b" stroke-width="2" stroke-opacity="0.8"
+                filter="url(#glow-cyan)"/>
+              <text y="-28" text-anchor="middle" font-size="30">🗄️</text>
+              <text y="-6"  text-anchor="middle" font-family="'Barlow Condensed', sans-serif" font-size="18" fill="#f59e0b" font-weight="800">BIGQUERY</text>
+              <text y="10"  text-anchor="middle" font-size="10" fill="#6b7fa3">Google Data Warehouse</text>
+              <text y="24"  text-anchor="middle" font-size="10" fill="#6b7fa3">SQL · ML · Real-time</text>
+              <text y="40"  text-anchor="middle" font-size="10" fill="#6b7fa3">Petabyte scale</text>
+              <circle cx="60" cy="-48" r="5" fill="#10b981">
+                <animate attributeName="opacity" values="1;0.3;1" dur="1.8s" repeatCount="indefinite"/>
+              </circle>
+            </g>
+
+            <!-- OUTPUT: Looker Studio -->
+            <g class="pipeline-node" id="node-looker" onclick="showNodeInfo('looker')" transform="translate(900,170)">
+              <rect class="node-bg" x="-60" y="-55" width="120" height="110" rx="12"
+                fill="#0d1526" stroke="#f97316" stroke-width="1.5" stroke-opacity="0.7"/>
+              <text y="-24" text-anchor="middle" font-size="28">📈</text>
+              <text y="-2"  text-anchor="middle" font-family="'Barlow Condensed', sans-serif" font-size="15" fill="#f97316" font-weight="800">LOOKER</text>
+              <text y="12"  text-anchor="middle" font-family="'Barlow Condensed', sans-serif" font-size="14" fill="#f97316" font-weight="800">STUDIO</text>
+              <text y="28"  text-anchor="middle" font-size="9" fill="#6b7fa3">Dashboards · Reports</text>
+              <text y="40"  text-anchor="middle" font-size="9" fill="#6b7fa3">Marketing Intelligence</text>
+            </g>
+
+          </svg>
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════
+           INFO DRAWER (click a node)
+      ════════════════════════════════ -->
+      <div id="infoDrawer" class="info-drawer" style="display:none">
+        <div class="info-drawer-header">
+          <div class="info-drawer-icon" id="drawerIcon"></div>
+          <div>
+            <div class="info-drawer-title" id="drawerTitle">—</div>
+            <div class="info-drawer-sub" id="drawerSub">—</div>
+          </div>
+          <button class="info-drawer-close" onclick="closeDrawer()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="info-drawer-body">
+          <div>
+            <div style="font-size:10px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px;">Data Structure / Query</div>
+            <div class="info-code-block" id="drawerCode"></div>
+          </div>
+          <div class="info-meta" id="drawerMeta"></div>
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════
+           PHASE EXPLANATION
+      ════════════════════════════════ -->
+      <div style="font-family:var(--font-display); font-size:22px; font-weight:700; margin-bottom:16px; display:flex; align-items:center; gap:10px;">
+        <i class="fas fa-chalkboard-teacher" style="color:var(--cyan)"></i> How the Pipeline Works
+      </div>
+      <div class="explanation-grid">
+        <div class="phase-card p1">
+          <div class="phase-card-title"><i class="fas fa-funnel-dollar"></i> Phase 1: Collection</div>
+          <div class="phase-card-sub">Consolidate all data into one unified stream</div>
+          <div class="phase-item">
+            <div class="phase-item-icon" style="background:rgba(59,130,246,0.15); color:var(--blue)"><i class="fas fa-users"></i></div>
+            <div><strong style="color:var(--text-primary)">Segment (CDP)</strong> — Collects from CRM + Website/App. Assigns unified customer IDs, normalizes events, creates 360° profiles in real-time.</div>
+          </div>
+          <div class="phase-item">
+            <div class="phase-item-icon" style="background:rgba(16,185,129,0.15); color:var(--bull)"><i class="fas fa-tachometer-alt"></i></div>
+            <div><strong style="color:var(--text-primary)">Supermetrics</strong> — Pulls from Google Ads API + Facebook Marketing API daily. Cleans, converts currencies, calculates ROAS automatically.</div>
+          </div>
+        </div>
+        <div class="phase-card p2">
+          <div class="phase-card-title"><i class="fas fa-database"></i> Phase 2: Centralize</div>
+          <div class="phase-card-sub">Single source of truth for all marketing data</div>
+          <div class="phase-item">
+            <div class="phase-item-icon" style="background:rgba(245,158,11,0.15); color:var(--warn)"><i class="fas fa-server"></i></div>
+            <div><strong style="color:var(--text-primary)">BigQuery</strong> — Receives all data from Segment + Supermetrics + direct CRM. Enables SQL joins: "Which campaign → which behavior → which deposits?" — impossible to answer without this.</div>
+          </div>
+          <div style="background:rgba(245,158,11,0.06); border:1px solid rgba(245,158,11,0.2); border-radius:6px; padding:10px; margin-top:8px; font-size:12px; color:var(--text-secondary);">
+            💡 <strong style="color:var(--text-primary)">Key unlock:</strong> Join ad spend (from Supermetrics) with customer LTV (from Segment) → calculate true ROAS including lifetime value, not just first deposit.
+          </div>
+        </div>
+        <div class="phase-card p3">
+          <div class="phase-card-title"><i class="fas fa-chart-bar"></i> Phase 3: Act</div>
+          <div class="phase-card-sub">Turn data into measurable business decisions</div>
+          <div class="phase-item">
+            <div class="phase-item-icon" style="background:rgba(249,115,22,0.15); color:var(--looker-color)"><i class="fas fa-chart-line"></i></div>
+            <div><strong style="color:var(--text-primary)">Looker Studio</strong> — Connects directly to BigQuery. Refreshes every 15 minutes. Powers this dashboard — ROAS, CAC, LTV, real-time alerts.</div>
+          </div>
+          <div class="phase-item">
+            <div class="phase-item-icon" style="background:rgba(139,92,246,0.15); color:var(--purple)"><i class="fas fa-robot"></i></div>
+            <div><strong style="color:var(--text-primary)">AI/ML (future)</strong> — Predict churn, forecast LTV, optimize bidding automatically using BigQuery ML.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ROI Strip -->
+      <div class="roi-strip">
+        <div class="roi-item">
+          <div class="roi-value">~$700</div>
+          <div class="roi-label">Monthly Tool Cost<br>(Segment + Supermetrics)</div>
+        </div>
+        <div class="roi-item">
+          <div class="roi-value">$120K</div>
+          <div class="roi-label">Annual Ad Spend<br>Savings Potential</div>
+        </div>
+        <div class="roi-item">
+          <div class="roi-value">$150K</div>
+          <div class="roi-label">LTV Increase Potential<br>from better targeting</div>
+        </div>
+        <div class="roi-item">
+          <div class="roi-value">2,700%</div>
+          <div class="roi-label">Total Pipeline ROI<br>vs annual cost</div>
+        </div>
+        <div class="roi-item">
+          <div class="roi-value">90%</div>
+          <div class="roi-label">Reduction in manual<br>reporting time</div>
+        </div>
+        <div class="roi-item">
+          <div class="roi-value">4–6 wks</div>
+          <div class="roi-label">Full implementation<br>timeline</div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       JAVASCRIPT
+  ═══════════════════════════════════════════════ -->
+  <script>
+    /* ─── Play / Pause animation ─── */
+    let playing = true;
+    function togglePlay() {
+      playing = !playing;
+      const svgEl = document.querySelector('.pipeline-svg');
+      svgEl.style.animationPlayState = playing ? 'running' : 'paused';
+      // Pause/resume SVG animations
+      document.querySelectorAll('animateMotion, animate').forEach(a => {
+        if (!playing) { try { a.pauseAnimations && a.pauseAnimations(); } catch(e){} }
+        else          { try { a.unpauseAnimations && a.unpauseAnimations(); } catch(e){} }
+      });
+      // Toggle pause on SVG element
+      const svg = document.querySelector('svg');
+      if (!playing) svg.pauseAnimations(); else svg.unpauseAnimations();
+
+      document.getElementById('playIcon').className  = playing ? 'fas fa-pause' : 'fas fa-play';
+      document.getElementById('playLabel').textContent = playing ? 'Pause' : 'Play';
+      document.getElementById('playBtn').className   = 'ctrl-btn ' + (playing ? 'running' : 'paused');
+    }
+
+    function resetAnim() {
+      const svg = document.querySelector('svg');
+      svg.setCurrentTime(0);
+      if (!playing) togglePlay();
+    }
+
+    /* ─── Toggle individual flows ─── */
+    function toggleFlow(id, checkbox) {
+      const lineId = 'line-' + id;
+      const line   = document.getElementById(lineId);
+      const pkt    = document.getElementById('pkt-' + id);
+      const toggle = checkbox.closest('.flow-toggle');
+
+      const active = checkbox.checked;
+      if (line) line.style.opacity = active ? '0.5' : '0.05';
+      if (pkt)  pkt.style.display  = active ? '' : 'none';
+      toggle.classList.toggle('active', active);
+    }
+
+    /* ─── Node info data ─── */
+    const nodeData = {
+      crm: {
+        title: 'CRM → Segment',
+        sub: 'Salesforce / HubSpot · Real-time webhook',
+        icon: '👥', iconBg: 'rgba(59,130,246,0.15)', iconColor: '#3b82f6',
+        code: `{
+  <span class="json-key">"event"</span>: <span class="json-string">"customer_updated"</span>,
+  <span class="json-key">"userId"</span>: <span class="json-string">"user_12345"</span>,
+  <span class="json-key">"traits"</span>: {
+    <span class="json-key">"email"</span>: <span class="json-string">"trader@example.com"</span>,
+    <span class="json-key">"accountType"</span>: <span class="json-string">"premium"</span>,
+    <span class="json-key">"totalDeposits"</span>: <span class="json-number">15000</span>,
+    <span class="json-key">"lastTradeDate"</span>: <span class="json-string">"2024-10-15"</span>
+  },
+  <span class="json-key">"timestamp"</span>: <span class="json-string">"2024-10-15T14:30:00Z"</span>
+}`,
+        meta: [
+          { label: 'Method', value: 'REST API webhook or SDK integration' },
+          { label: 'Frequency', value: 'Real-time on change events' },
+          { label: 'Data', value: 'Customer profile, deposit history, account status, trading tier' },
+          { label: 'Status', value: 'active' },
+          { label: 'Latency', value: '< 200ms p99' },
+        ]
+      },
+      web: {
+        title: 'Website / App → Segment',
+        sub: 'Segment SDK · JavaScript + iOS + Android',
+        icon: '🌐', iconBg: 'rgba(99,102,241,0.15)', iconColor: '#6366f1',
+        code: `{
+  <span class="json-key">"event"</span>: <span class="json-string">"Trade Executed"</span>,
+  <span class="json-key">"userId"</span>: <span class="json-string">"user_12345"</span>,
+  <span class="json-key">"properties"</span>: {
+    <span class="json-key">"currencyPair"</span>: <span class="json-string">"EUR/USD"</span>,
+    <span class="json-key">"tradeType"</span>: <span class="json-string">"buy"</span>,
+    <span class="json-key">"volume"</span>: <span class="json-number">1.5</span>,
+    <span class="json-key">"platform"</span>: <span class="json-string">"web"</span>
+  },
+  <span class="json-key">"timestamp"</span>: <span class="json-string">"2024-10-15T14:32:15Z"</span>
+}`,
+        meta: [
+          { label: 'Method', value: 'Segment Analytics.js SDK embedded in trading platform' },
+          { label: 'Events', value: 'page_view, trade_executed, deposit_initiated, registration_complete' },
+          { label: 'Frequency', value: 'Real-time with every user action' },
+          { label: 'Status', value: 'active' },
+          { label: 'Volume', value: '~50,000 events/day across all platforms' },
+        ]
+      },
+      ads: {
+        title: 'Ads Platforms → Supermetrics',
+        sub: 'Google Ads API · Facebook Marketing API · Daily pull',
+        icon: '📢', iconBg: 'rgba(236,72,153,0.15)', iconColor: '#ec4899',
+        code: `{
+  <span class="json-key">"campaign_id"</span>: <span class="json-string">"123456789"</span>,
+  <span class="json-key">"campaign_name"</span>: <span class="json-string">"Forex_EDU_Q4"</span>,
+  <span class="json-key">"date"</span>: <span class="json-string">"2024-10-15"</span>,
+  <span class="json-key">"impressions"</span>: <span class="json-number">15000</span>,
+  <span class="json-key">"clicks"</span>: <span class="json-number">350</span>,
+  <span class="json-key">"cost"</span>: <span class="json-number">1250.75</span>,
+  <span class="json-key">"conversions"</span>: <span class="json-number">42</span>,
+  <span class="json-key">"platform"</span>: <span class="json-string">"google_ads"</span>
+}`,
+        meta: [
+          { label: 'Sources', value: 'Google Ads, Facebook, TikTok, LinkedIn, Twitter/X' },
+          { label: 'Frequency', value: 'Daily batch pull at 06:00 UTC' },
+          { label: 'Data', value: 'Spend, impressions, clicks, conversions, audiences, creative performance' },
+          { label: 'Status', value: 'active' },
+          { label: 'History', value: '3 years of historical data retained' },
+        ]
+      },
+      seg: {
+        title: 'Segment → BigQuery',
+        sub: 'Segment Destinations · Streaming insert',
+        icon: '🔀', iconBg: 'rgba(139,92,246,0.15)', iconColor: '#8b5cf6',
+        code: `<span class="sql-kw">INSERT INTO</span> <span class="sql-val">\`segment_data.events\`</span>
+  (user_id, event_type,
+   properties, timestamp)
+<span class="sql-kw">VALUES</span> (
+  <span class="sql-val">'user_12345'</span>,
+  <span class="sql-val">'Trade Executed'</span>,
+  <span class="sql-val">'{"pair":"EUR/USD","vol":1.5}'</span>,
+  <span class="sql-val">'2024-10-15T14:32:15Z'</span>
+);
+
+<span class="sql-kw">-- Unified customer table</span>
+<span class="sql-kw">INSERT INTO</span> <span class="sql-val">\`segment_data.users\`</span>
+  (user_id, email, ltv,
+   deposit_count, last_active)`,
+        meta: [
+          { label: 'Method', value: 'Segment Destination → BigQuery Streaming Insert' },
+          { label: 'Frequency', value: 'Real-time streaming + hourly reconciliation batch' },
+          { label: 'Tables', value: 'segment_data.events, segment_data.users, segment_data.sessions' },
+          { label: 'Status', value: 'active' },
+          { label: 'Volume', value: '~50K rows/day, 1.5TB total storage' },
+        ]
+      },
+      sup: {
+        title: 'Supermetrics → BigQuery',
+        sub: 'Supermetrics Pipeline · Scheduled transfer',
+        icon: '📊', iconBg: 'rgba(16,185,129,0.15)', iconColor: '#10b981',
+        code: `<span class="sql-kw">INSERT INTO</span> <span class="sql-val">\`ads_data.campaigns\`</span>
+  (date, platform, campaign_id,
+   campaign_name, spend,
+   impressions, clicks,
+   conversions, roas_pct)
+<span class="sql-kw">VALUES</span> (
+  <span class="sql-val">'2024-10-15'</span>,
+  <span class="sql-val">'google_ads'</span>,
+  <span class="sql-val">'123456789'</span>,
+  <span class="sql-val">'Forex_EDU_Q4'</span>,
+  <span class="json-number">1250.75</span>, <span class="json-number">15000</span>,
+  <span class="json-number">350</span>, <span class="json-number">42</span>,
+  <span class="json-number">480.2</span>
+);`,
+        meta: [
+          { label: 'Method', value: 'Supermetrics Pipeline scheduled connector' },
+          { label: 'Frequency', value: 'Daily at 07:00 UTC (after all ad platforms close reporting)' },
+          { label: 'Tables', value: 'ads_data.campaigns, ads_data.creatives, ads_data.audiences' },
+          { label: 'Status', value: 'active' },
+          { label: 'Backfill', value: 'Automatic 30-day backfill on schema changes' },
+        ]
+      },
+      bq: {
+        title: 'BigQuery — Data Warehouse',
+        sub: 'Google BigQuery · SQL + ML · Petabyte scale',
+        icon: '🗄️', iconBg: 'rgba(245,158,11,0.15)', iconColor: '#f59e0b',
+        code: `<span class="sql-kw">-- Key join: Campaign → Customer LTV</span>
+<span class="sql-kw">SELECT</span>
+  c.campaign_name,
+  c.platform,
+  <span class="sql-kw">SUM</span>(c.spend) <span class="sql-kw">AS</span> total_spend,
+  <span class="sql-kw">COUNT</span>(<span class="sql-kw">DISTINCT</span> u.user_id) <span class="sql-kw">AS</span> ftds,
+  <span class="sql-kw">AVG</span>(u.ltv) <span class="sql-kw">AS</span> avg_ltv,
+  <span class="sql-kw">SUM</span>(u.ltv) / <span class="sql-kw">NULLIF</span>(<span class="sql-kw">SUM</span>(c.spend),<span class="json-number">0</span>)
+    * <span class="json-number">100</span> <span class="sql-kw">AS</span> ltv_roas_pct
+<span class="sql-kw">FROM</span> <span class="sql-val">\`ads_data.campaigns\`</span> c
+<span class="sql-kw">JOIN</span> <span class="sql-val">\`segment_data.users\`</span> u
+  <span class="sql-kw">ON</span> c.campaign_id = u.source_campaign_id
+<span class="sql-kw">GROUP BY</span> <span class="json-number">1,2</span>
+<span class="sql-kw">ORDER BY</span> ltv_roas_pct <span class="sql-kw">DESC</span>`,
+        meta: [
+          { label: 'Role', value: 'Central brain — joins ALL data sources into unified analytical views' },
+          { label: 'Cost', value: 'Pay-per-query ($5/TB scanned). ~$100–200/month for typical workload' },
+          { label: 'Key Views', value: 'v_campaign_ltv_roas, v_customer_segments, v_daily_performance' },
+          { label: 'Status', value: 'active' },
+          { label: 'Retention', value: 'Raw: 3 years · Aggregated: 7 years' },
+        ]
+      },
+      looker: {
+        title: 'Looker Studio — Dashboards',
+        sub: 'Direct BigQuery connection · Refreshes every 15min',
+        icon: '📈', iconBg: 'rgba(249,115,22,0.15)', iconColor: '#f97316',
+        code: `<span class="sql-kw">-- Looker Studio computed field: ROAS Status</span>
+<span class="sql-kw">CASE</span>
+  <span class="sql-kw">WHEN</span> roas_pct >= <span class="json-number">250</span>
+    <span class="sql-kw">THEN</span> <span class="json-string">"✅ Above Target"</span>
+  <span class="sql-kw">WHEN</span> roas_pct >= <span class="json-number">180</span>
+    <span class="sql-kw">THEN</span> <span class="json-string">"⚠️ At Breakeven"</span>
+  <span class="sql-kw">WHEN</span> roas_pct >= <span class="json-number">130</span>
+    <span class="sql-kw">THEN</span> <span class="json-string">"🔴 Below BE-ROAS"</span>
+  <span class="sql-kw">ELSE</span>
+    <span class="json-string">"⛔ Critical — Pause"</span>
+<span class="sql-kw">END</span>
+
+<span class="sql-kw">-- Daily refresh schedule</span>
+<span class="sql-kw">-- Cache: 15 minutes</span>`,
+        meta: [
+          { label: 'Connection', value: 'Native BigQuery connector — no intermediate layer' },
+          { label: 'Refresh', value: 'Every 15 minutes (configurable down to 1 min on paid plan)' },
+          { label: 'Dashboards', value: '4 pages: Overview, Campaign, LTV, Real-time (this app)' },
+          { label: 'Status', value: 'active' },
+          { label: 'Access', value: 'Role-based: CMO (read), Media Buyer (edit), Data Team (full)' },
+        ]
+      }
+    };
+
+    function showNodeInfo(id) {
+      const d = nodeData[id];
+      if (!d) return;
+
+      document.getElementById('drawerTitle').textContent   = d.title;
+      document.getElementById('drawerSub').textContent     = d.sub;
+      document.getElementById('drawerCode').innerHTML      = d.code;
+      document.getElementById('drawerIcon').innerHTML      = d.icon;
+      document.getElementById('drawerIcon').style.background = d.iconBg;
+      document.getElementById('drawerIcon').style.fontSize = '18px';
+
+      const metaEl = document.getElementById('drawerMeta');
+      metaEl.innerHTML = d.meta.map(m => {
+        if (m.label === 'Status') {
+          return `<div class="meta-row">
+            <span class="meta-label">${m.label}</span>
+            <span class="meta-value"><span class="status-badge active"><span class="status-badge-dot"></span> Active &amp; Healthy</span></span>
+          </div>`;
+        }
+        return `<div class="meta-row">
+          <span class="meta-label">${m.label}</span>
+          <span class="meta-value">${m.value}</span>
+        </div>`;
+      }).join('');
+
+      document.getElementById('infoDrawer').style.display = 'block';
+      document.getElementById('infoDrawer').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+      // Highlight selected node
+      document.querySelectorAll('.pipeline-node').forEach(n => n.classList.remove('selected'));
+      document.getElementById('node-' + (id === 'seg' ? 'seg' : id === 'sup' ? 'sup' : id === 'bq' ? 'bq' : id === 'looker' ? 'looker' : id)).classList.add('selected');
+    }
+
+    function closeDrawer() {
+      document.getElementById('infoDrawer').style.display = 'none';
+      document.querySelectorAll('.pipeline-node').forEach(n => n.classList.remove('selected'));
+    }
+  </script>
+</body>
+</html>

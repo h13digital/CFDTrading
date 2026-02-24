@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VESTRADO · Command Center</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
+  <style>
+    /* ═══════════════════════════════════════════════
+       DESIGN TOKENS (shared with index.html)
+    ═══════════════════════════════════════════════ */
+    :root {
+      --bg-base:    #070c18;
+      --bg-surface: #0d1526;
+      --bg-card:    #111e35;
+      --bg-hover:   #162440;
+      --border:     rgba(255,255,255,0.07);
+      --text-primary:   #e8edf5;
+      --text-secondary: #6b7fa3;
+      --text-muted:     #3a4a6b;
+      --bull:  #10b981;
+      --bear:  #ef4444;
+      --warn:  #f59e0b;
+      --cyan:  #06b6d4;
+      --blue:  #3b82f6;
+      --purple:#8b5cf6;
+      --sidebar-w: 220px;
+      --header-h: 56px;
+      --radius-sm: 6px; --radius-md: 10px; --radius-lg: 16px;
+      --font-display: 'Barlow Condensed', sans-serif;
+      --font-body:    'DM Sans', sans-serif;
+      --font-mono:    'JetBrains Mono', monospace;
+      --transition: 150ms ease;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 14px; }
+    body {
+      font-family: var(--font-body);
+      background: var(--bg-base);
+      color: var(--text-primary);
+      display: flex; min-height: 100vh; overflow-x: hidden;
+    }
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(6,182,212,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(6,182,212,0.02) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none; z-index: 0;
+    }
+
+    /* ═══════════════════════════════════════════════
+       SHARED SIDEBAR
+    ═══════════════════════════════════════════════ */
+    .sidebar {
+      width: var(--sidebar-w); min-height: 100vh;
+      background: var(--bg-surface); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      position: fixed; left: 0; top: 0; z-index: 100;
+    }
+    .sidebar-logo {
+      padding: 20px 18px 16px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .logo-mark {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, var(--cyan), var(--blue));
+      border-radius: 8px; display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-display); font-size: 16px; font-weight: 800; color: white;
+      flex-shrink: 0; box-shadow: 0 0 16px rgba(6,182,212,0.4);
+    }
+    .logo-text { font-family: var(--font-display); font-size: 18px; font-weight: 700; }
+    .logo-sub  { font-size: 10px; color: var(--text-secondary); letter-spacing: 1px; text-transform: uppercase; }
+    .sidebar-section { padding: 16px 12px 8px; font-size: 10px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-muted); }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 14px; margin: 2px 8px; border-radius: var(--radius-sm);
+      color: var(--text-secondary); text-decoration: none;
+      font-size: 13px; font-weight: 500; cursor: pointer;
+      transition: all var(--transition); border: 1px solid transparent;
+    }
+    .nav-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .nav-item.active { background: rgba(6,182,212,0.1); color: var(--cyan); border-color: rgba(6,182,212,0.2); }
+    .nav-item .nav-icon { width: 18px; text-align: center; font-size: 13px; flex-shrink: 0; }
+    .nav-badge { margin-left: auto; background: var(--bear); color: white; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 10px; }
+    .nav-badge.warn { background: var(--warn); color: #000; }
+    .sidebar-footer { margin-top: auto; padding: 16px; border-top: 1px solid var(--border); }
+    .theme-toggle { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; color: var(--text-secondary); font-size: 12px; width: 100%; transition: all var(--transition); }
+
+    /* ═══════════════════════════════════════════════
+       MAIN LAYOUT
+    ═══════════════════════════════════════════════ */
+    .main-wrapper { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; position: relative; z-index: 1; }
+    .topbar {
+      height: var(--header-h); background: var(--bg-surface); border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; padding: 0 24px; gap: 16px;
+      position: sticky; top: 0; z-index: 50;
+    }
+    .topbar-title { font-family: var(--font-display); font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
+    .topbar-sub { font-size: 12px; color: var(--text-secondary); margin-top: 1px; }
+    .topbar-spacer { flex: 1; }
+
+    /* ═══════════════════════════════════════════════
+       CONTENT LAYOUT — Two columns: TOC + Content
+    ═══════════════════════════════════════════════ */
+    .cc-layout { display: flex; gap: 0; flex: 1; }
+
+    /* Sticky Table of Contents */
+    .toc-panel {
+      width: 220px; flex-shrink: 0;
+      padding: 24px 16px;
+      border-right: 1px solid var(--border);
+      position: sticky; top: var(--header-h);
+      height: calc(100vh - var(--header-h));
+      overflow-y: auto;
+    }
+    .toc-title { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; }
+    .toc-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 10px; border-radius: var(--radius-sm);
+      color: var(--text-secondary); font-size: 12px;
+      cursor: pointer; transition: all var(--transition);
+      border: 1px solid transparent; margin-bottom: 2px;
+      text-decoration: none;
+    }
+    .toc-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .toc-item.active { color: var(--cyan); background: rgba(6,182,212,0.08); border-color: rgba(6,182,212,0.2); }
+    .toc-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .toc-item.page1 .toc-dot { background: var(--cyan); }
+    .toc-item.page2 .toc-dot { background: var(--bull); }
+    .toc-item.page3 .toc-dot { background: var(--purple); }
+    .toc-item.page4 .toc-dot { background: var(--warn); }
+    .toc-item.matrix .toc-dot { background: var(--blue); }
+
+    /* Divider in TOC */
+    .toc-divider { height: 1px; background: var(--border); margin: 12px 0; }
+
+    /* Calculator highlight */
+    .calc-highlight {
+      margin-top: 20px; padding: 12px;
+      background: rgba(6,182,212,0.06); border: 1px solid rgba(6,182,212,0.2);
+      border-radius: var(--radius-sm);
+    }
+    .calc-highlight-title { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--cyan); margin-bottom: 8px; }
+
+    /* Main content area */
+    .cc-content { flex: 1; padding: 24px 28px; overflow-y: auto; }
+
+    /* ═══════════════════════════════════════════════
+       THRESHOLD BANNER
+    ═══════════════════════════════════════════════ */
+    .threshold-banner {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-md); padding: 16px 20px;
+      margin-bottom: 24px;
+      display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+    }
+    .threshold-banner-title { font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--text-secondary); white-space: nowrap; }
+    .threshold-chips { display: flex; gap: 10px; flex-wrap: wrap; flex: 1; }
+    .threshold-chip {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 12px;
+      border-radius: var(--radius-sm); border: 1px solid;
+      font-family: var(--font-mono); font-size: 12px;
+    }
+    .t-chip-crit  { border-color: rgba(239,68,68,0.4); background: rgba(239,68,68,0.08); color: var(--bear); }
+    .t-chip-be    { border-color: rgba(245,158,11,0.4); background: rgba(245,158,11,0.08); color: var(--warn); }
+    .t-chip-target{ border-color: rgba(16,185,129,0.4); background: rgba(16,185,129,0.08); color: var(--bull); }
+    .t-chip-spend { border-color: rgba(6,182,212,0.3);  background: rgba(6,182,212,0.08);  color: var(--cyan); }
+    .chip-edit {
+      background: transparent; border: none; color: var(--text-muted);
+      cursor: pointer; font-size: 11px; padding: 0;
+      transition: color var(--transition);
+    }
+    .chip-edit:hover { color: var(--cyan); }
+
+    /* ═══════════════════════════════════════════════
+       PAGE SECTIONS
+    ═══════════════════════════════════════════════ */
+    .page-section { margin-bottom: 40px; scroll-margin-top: calc(var(--header-h) + 20px); }
+    .page-section-header {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 18px;
+      border-radius: var(--radius-md) var(--radius-md) 0 0;
+      margin-bottom: 0; border-bottom: 0;
+    }
+    .page-section-header.p1 { background: linear-gradient(90deg, rgba(6,182,212,0.15), transparent); border: 1px solid rgba(6,182,212,0.2); }
+    .page-section-header.p2 { background: linear-gradient(90deg, rgba(16,185,129,0.15), transparent); border: 1px solid rgba(16,185,129,0.2); }
+    .page-section-header.p3 { background: linear-gradient(90deg, rgba(139,92,246,0.15), transparent); border: 1px solid rgba(139,92,246,0.2); }
+    .page-section-header.p4 { background: linear-gradient(90deg, rgba(245,158,11,0.15), transparent); border: 1px solid rgba(245,158,11,0.2); }
+    .psh-icon { font-size: 18px; }
+    .p1 .psh-icon { color: var(--cyan); }
+    .p2 .psh-icon { color: var(--bull); }
+    .p3 .psh-icon { color: var(--purple); }
+    .p4 .psh-icon { color: var(--warn); }
+    .psh-text .psh-title { font-family: var(--font-display); font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
+    .psh-text .psh-sub   { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+
+    /* ═══════════════════════════════════════════════
+       DECISION CARDS
+    ═══════════════════════════════════════════════ */
+    .decision-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-top: 0; border-radius: 0 0 var(--radius-md) var(--radius-md);
+      overflow: hidden; margin-bottom: 16px;
+    }
+    .decision-card + .decision-card { border-top: 0; border-radius: var(--radius-md); }
+    .decision-card:first-of-type { border-radius: 0 0 var(--radius-md) var(--radius-md); }
+
+    .dc-trigger {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 18px;
+      cursor: pointer; transition: background var(--transition);
+      border-bottom: 1px solid var(--border); user-select: none;
+    }
+    .dc-trigger:hover { background: var(--bg-hover); }
+    .dc-trigger-icon { font-size: 16px; width: 24px; text-align: center; flex-shrink: 0; }
+    .dc-trigger-title { font-size: 14px; font-weight: 600; flex: 1; }
+    .dc-when {
+      font-size: 10px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
+      padding: 3px 8px; border-radius: 4px; background: rgba(255,255,255,0.05); color: var(--text-secondary);
+    }
+    .dc-chevron { color: var(--text-muted); font-size: 12px; transition: transform var(--transition); }
+    .dc-trigger.open .dc-chevron { transform: rotate(180deg); }
+
+    .dc-body {
+      display: none; padding: 18px;
+      animation: slideDown 200ms ease;
+    }
+    .dc-body.open { display: block; }
+    @keyframes slideDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Conditions / Decision / Result rows */
+    .dc-row {
+      display: flex; gap: 12px; margin-bottom: 12px; align-items: flex-start;
+    }
+    .dc-row-label {
+      width: 80px; flex-shrink: 0; font-size: 10px; font-weight: 700;
+      letter-spacing: 1px; text-transform: uppercase; color: var(--text-secondary);
+      padding-top: 3px;
+    }
+    .dc-row-content { flex: 1; font-size: 13px; line-height: 1.6; }
+
+    /* Condition Pills */
+    .condition-list { display: flex; flex-wrap: wrap; gap: 6px; }
+    .cond-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px; border-radius: var(--radius-sm);
+      font-family: var(--font-mono); font-size: 11px; border: 1px solid;
+    }
+    .cond-bull { border-color: rgba(16,185,129,0.4); background: rgba(16,185,129,0.08); color: var(--bull); }
+    .cond-bear { border-color: rgba(239,68,68,0.4);  background: rgba(239,68,68,0.08);  color: var(--bear); }
+    .cond-warn { border-color: rgba(245,158,11,0.4); background: rgba(245,158,11,0.08); color: var(--warn); }
+    .cond-cyan { border-color: rgba(6,182,212,0.3);  background: rgba(6,182,212,0.08);  color: var(--cyan); }
+    .cond-op   { color: var(--text-muted); font-size: 10px; }
+
+    /* Action box */
+    .action-box {
+      background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.2);
+      border-radius: var(--radius-sm); padding: 10px 14px;
+      font-size: 13px; line-height: 1.6; margin: 8px 0;
+    }
+    .action-box strong { color: var(--bull); }
+    .action-box.critical { background: rgba(239,68,68,0.06); border-color: rgba(239,68,68,0.2); }
+    .action-box.critical strong { color: var(--bear); }
+    .action-box.warn { background: rgba(245,158,11,0.06); border-color: rgba(245,158,11,0.2); }
+    .action-box.warn strong { color: var(--warn); }
+
+    /* Rationale box */
+    .rationale-box {
+      background: rgba(6,182,212,0.04); border-left: 3px solid rgba(6,182,212,0.3);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0; padding: 10px 14px;
+      margin-top: 10px;
+    }
+    .rationale-label { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--cyan); margin-bottom: 5px; }
+    .rationale-text { font-size: 12.5px; color: var(--text-secondary); line-height: 1.6; }
+    .rationale-text strong { color: var(--text-primary); }
+
+    /* Example box */
+    .example-box {
+      background: rgba(139,92,246,0.05); border: 1px solid rgba(139,92,246,0.15);
+      border-radius: var(--radius-sm); padding: 12px 14px; margin-top: 10px;
+    }
+    .example-label { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--purple); margin-bottom: 6px; }
+    .example-text { font-size: 12.5px; color: var(--text-secondary); line-height: 1.6; }
+    .example-text strong { color: var(--text-primary); }
+
+    /* ═══════════════════════════════════════════════
+       INTERACTIVE ROAS CALCULATOR
+    ═══════════════════════════════════════════════ */
+    .calculator-section {
+      background: var(--bg-card); border: 1px solid rgba(6,182,212,0.2);
+      border-radius: var(--radius-md); padding: 20px; margin-bottom: 24px;
+    }
+    .calc-title { font-family: var(--font-display); font-size: 18px; font-weight: 700; color: var(--cyan); margin-bottom: 4px; }
+    .calc-sub { font-size: 12px; color: var(--text-secondary); margin-bottom: 16px; }
+    .calc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+    .calc-field label { font-size: 10px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 5px; display: block; }
+    .calc-field input {
+      width: 100%; background: var(--bg-surface); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text-primary); font-family: var(--font-mono);
+      font-size: 13px; padding: 8px 12px; outline: none; transition: border-color var(--transition);
+    }
+    .calc-field input:focus { border-color: var(--cyan); }
+
+    .calc-result-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-top: 14px; }
+    .calc-result-item {
+      padding: 12px; border-radius: var(--radius-sm); border: 1px solid; text-align: center;
+    }
+    .calc-result-item.bull { border-color: rgba(16,185,129,0.3); background: rgba(16,185,129,0.06); }
+    .calc-result-item.warn { border-color: rgba(245,158,11,0.3); background: rgba(245,158,11,0.06); }
+    .calc-result-item.bear { border-color: rgba(239,68,68,0.3); background: rgba(239,68,68,0.06); }
+    .calc-result-item.cyan { border-color: rgba(6,182,212,0.3); background: rgba(6,182,212,0.06); }
+    .calc-result-value { font-family: var(--font-display); font-size: 24px; font-weight: 700; }
+    .calc-result-item.bull .calc-result-value { color: var(--bull); }
+    .calc-result-item.warn .calc-result-value { color: var(--warn); }
+    .calc-result-item.bear .calc-result-value { color: var(--bear); }
+    .calc-result-item.cyan .calc-result-value { color: var(--cyan); }
+    .calc-result-label { font-size: 10px; color: var(--text-secondary); margin-top: 4px; }
+
+    .calc-verdict {
+      margin-top: 12px; padding: 12px 16px;
+      border-radius: var(--radius-sm); border: 1px solid;
+      font-size: 13px; font-weight: 500; text-align: center;
+      transition: all 200ms ease;
+    }
+
+    /* ═══════════════════════════════════════════════
+       DECISION MATRIX TABLE
+    ═══════════════════════════════════════════════ */
+    .matrix-section { margin-bottom: 40px; scroll-margin-top: calc(var(--header-h) + 20px); }
+    .matrix-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    .matrix-table thead tr { background: rgba(59,130,246,0.15); border-bottom: 1px solid rgba(59,130,246,0.3); }
+    .matrix-table th { padding: 12px 16px; text-align: left; font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--blue); }
+    .matrix-table td { padding: 12px 16px; border-bottom: 1px solid var(--border); line-height: 1.5; }
+    .matrix-table tbody tr:hover { background: var(--bg-hover); }
+    .matrix-table td:nth-child(2) { font-weight: 600; color: var(--text-primary); }
+    .matrix-table td:nth-child(3) { color: var(--text-secondary); font-size: 12px; }
+
+    /* ═══════════════════════════════════════════════
+       FREQUENCY BLOCKS
+    ═══════════════════════════════════════════════ */
+    .freq-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 30px; }
+    .freq-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-md); padding: 18px; border-top: 3px solid;
+    }
+    .freq-card.daily  { border-top-color: var(--bear); }
+    .freq-card.weekly { border-top-color: var(--cyan); }
+    .freq-card.monthly{ border-top-color: var(--purple); }
+    .freq-card-title { font-family: var(--font-display); font-size: 18px; font-weight: 700; margin-bottom: 12px; }
+    .daily .freq-card-title  { color: var(--bear); }
+    .weekly .freq-card-title { color: var(--cyan); }
+    .monthly .freq-card-title{ color: var(--purple); }
+    .freq-items { display: flex; flex-direction: column; gap: 8px; }
+    .freq-item { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; }
+    .freq-time { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); padding-top: 2px; flex-shrink: 0; width: 50px; }
+    .freq-desc { color: var(--text-secondary); line-height: 1.5; }
+
+    /* ═══════════════════════════════════════════════
+       SCROLLBAR
+    ═══════════════════════════════════════════════ */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-base); }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+    /* ═══════════════════════════════════════════════
+       RESPONSIVE
+    ═══════════════════════════════════════════════ */
+    @media (max-width: 900px) {
+      .toc-panel { display: none; }
+      .freq-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 768px) {
+      .sidebar { width: 60px; }
+      .logo-text, .logo-sub, .nav-item span:not(.nav-icon), .sidebar-section, .nav-badge { display: none; }
+      .main-wrapper { margin-left: 60px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ═══════════════════════════ SIDEBAR ═══════════════════════════ -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">V</div>
+      <div>
+        <div class="logo-text">VESTRADO</div>
+        <div class="logo-sub">ALFX Marketing</div>
+      </div>
+    </div>
+    <div class="sidebar-section">Overview</div>
+    <a href="index.html" class="nav-item">
+      <i class="nav-icon fas fa-th-large"></i><span>Dashboard</span>
+    </a>
+    <div class="sidebar-section">Analytics</div>
+    <a href="commandcenter.html" class="nav-item active">
+      <i class="nav-icon fas fa-crosshairs"></i><span>Command Center</span>
+    </a>
+    <a href="datamodel.html" class="nav-item">
+      <i class="nav-icon fas fa-project-diagram"></i><span>Data Pipeline</span>
+    </a>
+    <div class="sidebar-section">Monitoring</div>
+    <a href="index.html#tab4" class="nav-item">
+      <i class="nav-icon fas fa-satellite-dish"></i><span>Real-time Alerts</span>
+      <span class="nav-badge warn">2</span>
+    </a>
+    <a href="#" class="nav-item"><i class="nav-icon fas fa-file-alt"></i><span>Reports</span></a>
+    <div class="sidebar-section">Settings</div>
+    <a href="#" class="nav-item"><i class="nav-icon fas fa-sliders-h"></i><span>Thresholds</span></a>
+    <a href="#" class="nav-item"><i class="nav-icon fas fa-user-circle"></i><span>Account</span></a>
+    <div class="sidebar-footer">
+      <button class="theme-toggle"><i class="fas fa-adjust"></i><span>Toggle Theme</span></button>
+    </div>
+  </aside>
+
+  <!-- ═══════════════════════════ MAIN ═══════════════════════════ -->
+  <div class="main-wrapper">
+    <header class="topbar">
+      <div>
+        <div class="topbar-title">Command Center</div>
+        <div class="topbar-sub">Data → Insights → Actions · Decision Framework for CFD Marketing</div>
+      </div>
+      <div class="topbar-spacer"></div>
+      <a href="index.html" style="display:flex; align-items:center; gap:6px; padding:7px 14px; background:rgba(6,182,212,0.1); border:1px solid rgba(6,182,212,0.3); border-radius:var(--radius-sm); color:var(--cyan); font-size:12px; font-weight:500; text-decoration:none; transition:all var(--transition);">
+        <i class="fas fa-th-large"></i> Open Dashboard
+      </a>
+    </header>
+
+    <div class="cc-layout">
+
+      <!-- ═══ TABLE OF CONTENTS ═══ -->
+      <nav class="toc-panel">
+        <div class="toc-title">Quick Navigation</div>
+
+        <a href="#thresholds" class="toc-item" onclick="setToc(this)">
+          <div class="toc-dot" style="background:var(--warn)"></div> Thresholds
+        </a>
+        <a href="#calculator" class="toc-item" onclick="setToc(this)">
+          <div class="toc-dot" style="background:var(--cyan)"></div> ROAS Calculator
+        </a>
+
+        <div class="toc-divider"></div>
+        <a href="#page1" class="toc-item page1" onclick="setToc(this)">
+          <div class="toc-dot"></div> Page 1: Overview
+        </a>
+        <a href="#page2" class="toc-item page2" onclick="setToc(this)">
+          <div class="toc-dot"></div> Page 2: Campaigns
+        </a>
+        <a href="#page3" class="toc-item page3" onclick="setToc(this)">
+          <div class="toc-dot"></div> Page 3: LTV
+        </a>
+        <a href="#page4" class="toc-item page4" onclick="setToc(this)">
+          <div class="toc-dot"></div> Page 4: Real-time
+        </a>
+
+        <div class="toc-divider"></div>
+        <a href="#matrix" class="toc-item matrix" onclick="setToc(this)">
+          <div class="toc-dot"></div> Decision Matrix
+        </a>
+        <a href="#frequency" class="toc-item" onclick="setToc(this)">
+          <div class="toc-dot" style="background:var(--text-muted)"></div> Frequency Guide
+        </a>
+
+        <!-- Mini calculator result in TOC -->
+        <div class="calc-highlight">
+          <div class="calc-highlight-title"><i class="fas fa-calculator"></i> Quick Check</div>
+          <div style="font-size:11px; color:var(--text-secondary);">Enter values in calculator to see real-time verdict here.</div>
+          <div id="tocVerdict" style="margin-top:8px; font-family:var(--font-mono); font-size:12px;"></div>
+        </div>
+      </nav>
+
+      <!-- ═══ MAIN CONTENT ═══ -->
+      <div class="cc-content">
+
+        <!-- ── THRESHOLDS BANNER ── -->
+        <div class="threshold-banner" id="thresholds">
+          <span class="threshold-banner-title"><i class="fas fa-sliders-h" style="color:var(--warn)"></i>&nbsp; Active Thresholds</span>
+          <div class="threshold-chips">
+            <div class="threshold-chip t-chip-crit"><i class="fas fa-stop-circle"></i> C-ROAS <span id="cRoasDisplay">130%</span> <button class="chip-edit" onclick="editThreshold('c')" title="Edit"><i class="fas fa-pencil"></i></button></div>
+            <div class="threshold-chip t-chip-be"><i class="fas fa-equals"></i> BE-ROAS <span id="beRoasDisplay">180%</span> <button class="chip-edit" onclick="editThreshold('be')" title="Edit"><i class="fas fa-pencil"></i></button></div>
+            <div class="threshold-chip t-chip-target"><i class="fas fa-bullseye"></i> T-ROAS <span id="tRoasDisplay">250%</span> <button class="chip-edit" onclick="editThreshold('t')" title="Edit"><i class="fas fa-pencil"></i></button></div>
+            <div class="threshold-chip t-chip-spend"><i class="fas fa-coins"></i> Min Spend <span id="beSpendDisplay">$500</span> <button class="chip-edit" onclick="editThreshold('spend')" title="Edit"><i class="fas fa-pencil"></i></button></div>
+          </div>
+        </div>
+
+        <!-- ── ROAS CALCULATOR ── -->
+        <div class="calculator-section" id="calculator">
+          <div class="calc-title"><i class="fas fa-calculator"></i>&nbsp; ROAS Decision Calculator</div>
+          <div class="calc-sub">Enter campaign data → get instant action recommendation based on your active thresholds</div>
+          <div class="calc-grid">
+            <div class="calc-field">
+              <label>Ad Spend ($)</label>
+              <input type="number" id="calcSpend" placeholder="e.g. 2000" oninput="calculate()" />
+            </div>
+            <div class="calc-field">
+              <label>Revenue Generated ($)</label>
+              <input type="number" id="calcRevenue" placeholder="e.g. 5000" oninput="calculate()" />
+            </div>
+            <div class="calc-field">
+              <label>Days Running</label>
+              <input type="number" id="calcDays" placeholder="e.g. 7" oninput="calculate()" />
+            </div>
+            <div class="calc-field">
+              <label>Customer LTV ($)</label>
+              <input type="number" id="calcLtv" placeholder="e.g. 1800" oninput="calculate()" />
+            </div>
+          </div>
+          <div class="calc-result-grid">
+            <div class="calc-result-item cyan">
+              <div class="calc-result-value" id="calcRoasResult">—</div>
+              <div class="calc-result-label">Current ROAS</div>
+            </div>
+            <div class="calc-result-item" id="calcCacBox" style="border-color:var(--border)">
+              <div class="calc-result-value" id="calcCacResult" style="color:var(--text-primary)">—</div>
+              <div class="calc-result-label">Est. CAC (LTV/ROAS)</div>
+            </div>
+            <div class="calc-result-item" id="calcProfitBox" style="border-color:var(--border)">
+              <div class="calc-result-value" id="calcProfitResult" style="color:var(--text-primary)">—</div>
+              <div class="calc-result-label">Net Profit</div>
+            </div>
+            <div class="calc-result-item" id="calcLtvCacBox" style="border-color:var(--border)">
+              <div class="calc-result-value" id="calcLtvCacResult" style="color:var(--text-primary)">—</div>
+              <div class="calc-result-label">LTV:CAC Ratio</div>
+            </div>
+          </div>
+          <div id="calcVerdict" class="calc-verdict" style="display:none"></div>
+        </div>
+
+        <!-- ══════════════════════════════
+             PAGE 1: PERFORMANCE OVERVIEW
+        ══════════════════════════════ -->
+        <div class="page-section" id="page1">
+          <div class="page-section-header p1">
+            <i class="fas fa-tachometer-alt psh-icon"></i>
+            <div class="psh-text">
+              <div class="psh-title">PAGE 1 — Performance Overview</div>
+              <div class="psh-sub">Immediate Decisions · Budget Reallocation · Geo & Device Optimization</div>
+            </div>
+          </div>
+
+          <!-- Decision 1.1: Budget Reallocation -->
+          <div class="decision-card">
+            <div class="dc-trigger" onclick="toggleDC(this)">
+              <span class="dc-trigger-icon" style="color:var(--warn)"><i class="fas fa-exchange-alt"></i></span>
+              <span class="dc-trigger-title">Budget Reallocation — Reward Winners, Cut Losers</span>
+              <span class="dc-when">Immediate</span>
+              <i class="fas fa-chevron-down dc-chevron"></i>
+            </div>
+            <div class="dc-body open">
+              <div class="dc-row">
+                <span class="dc-row-label">When:</span>
+                <div class="dc-row-content">
+                  <div class="condition-list">
+                    <span class="cond-pill cond-bull"><i class="fas fa-check-circle"></i> Channel A: ROAS > T-ROAS (250%)</span>
+                    <span class="cond-op">AND</span>
+                    <span class="cond-pill cond-bull">Fully spent</span>
+                    <span class="cond-op">&nbsp;·&nbsp;</span>
+                    <span class="cond-pill cond-bear"><i class="fas fa-times-circle"></i> Channel B: ROAS &lt; BE-ROAS (180%)</span>
+                    <span class="cond-op">AND</span>
+                    <span class="cond-pill cond-warn">Spend > $500</span>
+                  </div>
+                </div>
+              </div>
+              <div class="dc-row">
+                <span class="dc-row-label">Action:</span>
+                <div class="dc-row-content">
+                  <div class="action-box">
+                    <strong>👉 Shift budget from Channel B → Channel A.</strong> Max increase: <strong>20%</strong> per budget adjustment, minimum <strong>48h</strong> between changes. <br>Expected result: <strong>+15–20% overall ROAS</strong>.
+                  </div>
+                </div>
+              </div>
+              <div class="rationale-box">
+                <div class="rationale-label"><i class="fas fa-brain"></i> Strategic Rationale</div>
+                <div class="rationale-text">Principle: <strong>"Reward Winners, Cut Losers."</strong> When Channel A outperforms (ROAS > T-ROAS), it needs more capital to scale efficiently. Slow increases (15–20%) prevent algorithm shock on platforms like Facebook and Google Ads.</div>
+              </div>
+              <div class="example-box">
+                <div class="example-label"><i class="fas fa-lightbulb"></i> Practical Example</div>
+                <div class="example-text"><strong>Data:</strong> Facebook ROAS 480% (spent $8K/day) | TikTok ROAS 180% (spent $2K/day).<br><strong>Decision:</strong> Scale Facebook $12K → <strong>$14K</strong> (16.7% increase ✓). Keep TikTok at $2K — change creative and audience. <strong>Do not pause</strong> at BE-ROAS.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Decision 1.2: Geo Optimization -->
+          <div class="decision-card" style="border-radius:var(--radius-md); margin-top:8px;">
+            <div class="dc-trigger" onclick="toggleDC(this)">
+              <span class="dc-trigger-icon" style="color:var(--blue)"><i class="fas fa-globe-asia"></i></span>
+              <span class="dc-trigger-title">Geo / Country Optimization — CAC-driven allocation</span>
+              <span class="dc-when">Weekly</span>
+              <i class="fas fa-chevron-down dc-chevron"></i>
+            </div>
+            <div class="dc-body">
+              <div class="dc-row">
+                <span class="dc-row-label">When:</span>
+                <div class="dc-row-content">
+                  <div class="condition-list">
+                    <span class="cond-pill cond-bull">Country X: Low CAC</span>
+                    <span class="cond-op">vs</span>
+                    <span class="cond-pill cond-bear">Country Y: High CAC</span>
+                  </div>
+                </div>
+              </div>
+              <div class="dc-row">
+                <span class="dc-row-label">Action:</span>
+                <div class="dc-row-content">
+                  <div class="action-box warn">
+                    <strong>⚠️ Check LTV by country BEFORE final decision.</strong> Do NOT optimize purely on CAC — a high-CAC country with high LTV (strong LTV:CAC ratio) should be maintained or even increased.
+                  </div>
+                </div>
+              </div>
+              <div class="rationale-box">
+                <div class="rationale-label"><i class="fas fa-brain"></i> Strategic Rationale</div>
+                <div class="rationale-text">Based on <strong>Customer Acquisition Cost (CAC)</strong>. Goal: allocate funds where cost-per-new-customer is lowest — but always verify LTV. A $150 CAC in Singapore with $3,000 LTV (20× ratio) is better than $50 CAC in Malaysia with $200 LTV (4× ratio).</div>
+              </div>
+              <div class="example-box">
+                <div class="example-label"><i class="fas fa-lightbulb"></i> Practical Example</div>
+                <div class="example-text"><strong>Malaysia CAC:</strong> $50 · LTV $600 → LTV:CAC 12×<br><strong>Singapore CAC:</strong> $150 · LTV $3,000 → LTV:CAC 20×<br><strong>Decision:</strong> Maintain Singapore despite higher CAC. <strong>Rationale:</strong> Singapore customers are 67% more valuable per dollar spent over lifetime.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Decision 1.3: Device Optimization -->
+          <div class="decision-card" style="border-radius:var(--radius-md); margin-top:8px;">
+            <div class="dc-trigger" onclick="toggleDC(this)">
+              <span class="dc-trigger-icon" style="color:var(--purple)"><i class="fas fa-mobile-alt"></i></span>
+              <span class="dc-trigger-title">Device Optimization — Fix the bottleneck, don't just push winners</span>
+              <span class="dc-when">Weekly</span>
+              <i class="fas fa-chevron-down dc-chevron"></i>
+            </div>
+            <div class="dc-body">
+              <div class="dc-row">
+                <span class="dc-row-label">When:</span>
+                <div class="dc-row-content">
+                  <div class="condition-list">
+                    <span class="cond-pill cond-bear">Mobile ROAS significantly lower than Desktop</span>
+                  </div>
+                </div>
+              </div>
+              <div class="dc-row">
+                <span class="dc-row-label">Action:</span>
+                <div class="dc-row-content">
+                  <div class="action-box">
+                    <strong>👉 Two-pronged approach:</strong><br>1. Increase desktop bids by 10–15%.<br>2. <strong>Investigate mobile</strong> — check for tracking issues AND optimize mobile landing page UX (load speed, CTA above fold, form length).
+                  </div>
+                </div>
+              </div>
+              <div class="example-box">
+                <div class="example-label"><i class="fas fa-lightbulb"></i> Practical Example</div>
+                <div class="example-text"><strong>Desktop ROAS:</strong> 450% | <strong>Mobile ROAS:</strong> 280%<br>Large discrepancy often = poor mobile UX or broken tracking. <strong>Fix</strong>: Audit mobile LP speed (target &lt;3s load), simplify registration form to ≤ 4 fields, verify pixel firing on mobile. <strong>Expected impact:</strong> +30–50% mobile ROAS after fix.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══════════════════════════════
+             PAGE 2: CAMPAIGN DRILL-DOWN
+        ══════════════════════════════ -->
+        <div class="page-section" id="page2">
+          <div class="page-section-header p2">
+            <i class="fas fa-search-dollar psh-icon"></i>
+            <div class="psh-text">
+              <div class="psh-title">PAGE 2 — Campaign Drill-Down</div>
+              <div class="psh-sub">Tactical Decisions · Pause / Scale / Creative Optimization</div>
+            </div>
+          </div>
+
+          <!-- Decision 2.1: Campaign Pausing -->
+          <div class="decision-card">
+            <div class="dc-trigger" onclick="toggleDC(this)">
+              <span class="dc-trigger-icon" style="color:var(--bear)"><i class="fas fa-pause-circle"></i></span>
+              <span class="dc-trigger-title">Campaign Pausing — Stop Budget Leakage</span>
+              <span class="dc-when">Immediate</span>
+              <i class="fas fa-chevron-down dc-chevron"></i>
+            </div>
+            <div class="dc-body open">
+              <div class="dc-row">
+                <span class="dc-row-label">Criteria:</span>
+                <div class="dc-row-content">
+                  <div class="condition-list">
+                    <span class="cond-pill cond-bear"><i class="fas fa-times-circle"></i> ROAS &lt; C-ROAS (130%)</span>
+                    <span class="cond-op">AND</span>
+                    <span class="cond-pill cond-warn">Spend > $500 (BE-Spend)</span>
+                    <span class="cond-op">AND</span>
+                    <span class="cond-pill cond-warn">Running 7+ days</span>
+                  </div>
+                  <div style="margin-top: 8px; font-size:12px; color:var(--text-secondary);">⚠️ <strong>Important:</strong> If spend &lt; $500, data is not statistically significant — do NOT pause yet, wait for more data.</div>
+                </div>
+              </div>
+              <div class="dc-row">
+                <span class="dc-row-label">Action:</span>
+                <div class="dc-row-content">
+                  <div class="action-box critical">
+                    <strong>⏸ Pause immediately.</strong> Investigate: creative fatigue, targeting exhaustion, tracking breakdown, LP issues. Reallocate saved budget to top-performing campaigns or new A/B tests.
+                  </div>
+                </div>
+              </div>
+              <div class="example-box">
+                <div class="example-label"><i class="fas fa-lightbulb"></i> Practical Example</div>
+                <div class="example-text"><strong>"Google-Retargeting":</strong> $100/day spend, ROAS 130%, running 10 days = $1,000 spent below breakeven. <strong>Pause immediately.</strong> Save $700 → reallocate to "Forex-EDU-1" at 480% ROAS. Expected additional revenue: <strong>$700 × 480% = $3,360</strong> vs current $700 × 130% = $910. Net gain: <strong>$2,450</strong>.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Decision 2.2: Scaling Winners -->
+          <div class="decision-card" style="border-radius:var(--radius-md); margin-top:8px;">
+            <div class="dc-trigger" onclick="toggleDC(this)">
+              <span class="dc-trigger-icon" style="color:var(--bull)"><i class="fas fa-rocket"></i></span>
+              <span class="dc-trigger-title">Scaling Winning Campaigns — Accelerated Efficiency Exploitation</span>
+              <span class="dc-when">Weekly</span>
+              <i class="fas fa-chevron-down dc-chevron"></i>
+            </div>
+            <div class="dc-body">
+              <div class="dc-row">
+                <span class="dc-row-label">Criteria:</span>
+                <div class="dc-row-content">
+                  <div class="condition-list">
+                    <span class="cond-pill cond-bull">ROAS > T-ROAS (250%)</span>
+                    <span class="cond-op">AND</span>
+                    <span class="cond-pill cond-bull">Stable for 14+ days</span>
+                    <span class="cond-op">AND</span>
+                    <span class="cond-pill cond-cyan">Good LTV confirmed</span>
+                  </div>
+                </div>
+              </div>
+              <div class="dc-row">
+                <span class="dc-row-label">Action:</span>
+                <div class="dc-row-content">
+                  <div class="action-box">
+                    <strong>🚀 Scale budget +15–20%</strong> every 48–72 hours maximum. Simultaneously create Lookalike Audiences (1–3%) from converting customers to expand reach without degrading quality.
+                  </div>
+                  <div style="margin-top:8px; padding:8px 12px; background:rgba(245,158,11,0.06); border:1px solid rgba(245,158,11,0.2); border-radius:4px; font-size:12px; color:var(--warn);">
+                    <i class="fas fa-exclamation-triangle"></i> <strong>Budget Scaling Rule:</strong> Never increase by more than 20% in one step — this resets the learning phase on Facebook/Google Ads algorithms, causing 3–7 days of performance instability.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Decision 2.3: Creative Optimization -->
+          <div class="decision-card" style="border-radius:var(--radius-md); margin-top:8px;">
+            <div class="dc-trigger" onclick="toggleDC(this)">
+              <span class="dc-trigger-icon" style="color:var(--cyan)"><i class="fas fa-paint-brush"></i></span>
+              <span class="dc-trigger-title">Creative Optimization — Business Value over Vanity Metrics</span>
+              <span class="dc-when">Weekly</span>
+              <i class="fas fa-chevron-down dc-chevron"></i>
+            </div>
+            <div class="dc-body">
+              <div class="dc-row">
+                <span class="dc-row-label">Rule:</span>
+                <div class="dc-row-content">
+                  <span style="font-size:13px; color:var(--warn);">⚠️ <strong style="color:var(--text-primary)">High CTR ≠ High ROAS.</strong></span>
+                  <span style="font-size:13px; color:var(--text-secondary)"> Always optimize for CPA/ROAS, not CTR alone.</span>
+                </div>
+              </div>
+              <div class="dc-row">
+                <span class="dc-row-label">Action:</span>
+                <div class="dc-row-content">
+                  <div class="action-box">
+                    <strong>80% budget</strong> on proven high-ROAS creatives (video preferred). <strong>20% budget</strong> reserved for continuous new creative testing. Always maintain ≥3 active creatives per ad set.
+                  </div>
+                </div>
+              </div>
+              <div class="example-box">
+                <div class="example-label"><i class="fas fa-lightbulb"></i> Counter-Intuitive Example</div>
+                <div class="example-text"><strong>Creative A:</strong> CTR 10%, CPA $500 · <strong>Creative B:</strong> CTR 4%, CPA $300<br><strong>Decision:</strong> Focus budget on Creative B despite lower CTR.<br><strong>Rationale:</strong> Creative B attracts the audience most likely to convert into paying customers. Low CTR + low CPA = highly qualified, intent-rich audience — exactly who you want.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══════════════════════════════
+             PAGE 3: LTV & CUSTOMER ANALYSIS
+        ══════════════════════════════ -->
+        <div class="page-section" id="page3">
+          <div class="page-section-header p3">
+            <i class="fas fa-gem psh-icon"></i>
+            <div class="psh-text">
+              <div class="psh-title">PAGE 3 — LTV & Customer Analysis</div>
+              <div class="psh-sub">Strategic Decisions · Acquisition Quality · Retention & Product</div>
+            </div>
+          </div>
+
+          <div class="decision-card">
+            <div class="dc-trigger" onclick="toggleDC(this)">
+              <span class="dc-trigger-icon" style="color:var(--purple)"><i class="fas fa-crosshairs"></i></span>
+              <span class="dc-trigger-title">Acquisition Strategy — Optimize for LTV:CAC Ratio, not raw conversions</span>
+              <span class="dc-when">Monthly</span>
+              <i class="fas fa-chevron-down dc-chevron"></i>
+            </div>
+            <div class="dc-body open">
+              <div class="dc-row">
+                <span class="dc-row-label">Insight:</span>
+                <div class="dc-row-content">YouTube LTV $2,400 (ratio 6.3×) vs Facebook LTV $1,800 (ratio 5.6×). TradingView LTV $3,100 (highest).</div>
+              </div>
+              <div class="dc-row">
+                <span class="dc-row-label">Action:</span>
+                <div class="dc-row-content">
+                  <div class="action-box">
+                    <strong>Increase YouTube budget</strong> (max 20% of total marketing budget). <strong>Maintain Facebook volume</strong> to secure overall customer count. <strong>Invest in TradingView partnerships.</strong>
+                  </div>
+                </div>
+              </div>
+              <div class="rationale-box">
+                <div class="rationale-label"><i class="fas fa-brain"></i> Strategic Rationale</div>
+                <div class="rationale-text">Budget should flow to the channel that yields the highest LTV customer — not just the cheapest CAC. YouTube customers at $400 CAC with $2,400 LTV (6×) outperform Facebook customers at $320 CAC with $1,800 LTV (5.6×) over the customer lifetime.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="decision-card" style="border-radius:var(--radius-md); margin-top:8px;">
+            <div class="dc-trigger" onclick="toggleDC(this)">
+              <span class="dc-trigger-icon" style="color:var(--bull)"><i class="fas fa-heart"></i></span>
+              <span class="dc-trigger-title">Retention Investment — Concentrate on high-engagement threshold customers</span>
+              <span class="dc-when">Monthly</span>
+              <i class="fas fa-chevron-down dc-chevron"></i>
+            </div>
+            <div class="dc-body">
+              <div class="dc-row">
+                <span class="dc-row-label">Finding:</span>
+                <div class="dc-row-content">Customers trading <strong>10+/month</strong> have <strong>4× higher LTV</strong> than those trading &lt;10/month.</div>
+              </div>
+              <div class="dc-row">
+                <span class="dc-row-label">Action:</span>
+                <div class="dc-row-content">
+                  <div class="action-box">
+                    <strong>Launch loyalty program</strong> exclusively for customers who have crossed the 10 trades/month threshold. Do NOT dilute program by offering to low-engagement users.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="decision-card" style="border-radius:var(--radius-md); margin-top:8px;">
+            <div class="dc-trigger" onclick="toggleDC(this)">
+              <span class="dc-trigger-icon" style="color:var(--cyan)"><i class="fas fa-cogs"></i></span>
+              <span class="dc-trigger-title">Product Development — Reverse Investment based on LTV signals</span>
+              <span class="dc-when">Quarterly</span>
+              <i class="fas fa-chevron-down dc-chevron"></i>
+            </div>
+            <div class="dc-body">
+              <div class="dc-row">
+                <span class="dc-row-label">Insight:</span>
+                <div class="dc-row-content">TradingView referrals have the highest LTV ($3,100) — these are advanced, high-frequency traders.</div>
+              </div>
+              <div class="dc-row">
+                <span class="dc-row-label">Action:</span>
+                <div class="dc-row-content">
+                  <div class="action-box">
+                    <strong>Develop advanced charting tools.</strong> Push TradingView integration/partnership. Instead of only advertising, improve the <em>product</em> to organically attract this high-value traffic source — turning a product strength into a sustained acquisition advantage.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══════════════════════════════
+             PAGE 4: REAL-TIME MONITORING
+        ══════════════════════════════ -->
+        <div class="page-section" id="page4">
+          <div class="page-section-header p4">
+            <i class="fas fa-satellite-dish psh-icon"></i>
+            <div class="psh-text">
+              <div class="psh-title">PAGE 4 — Real-Time Monitoring</div>
+              <div class="psh-sub">Urgent Decisions · Within 2–4 Hours · Never wait for EOD reports</div>
+            </div>
+          </div>
+
+          <div class="decision-card">
+            <div class="dc-trigger" onclick="toggleDC(this)">
+              <span class="dc-trigger-icon" style="color:var(--warn)"><i class="fas fa-clock"></i></span>
+              <span class="dc-trigger-title">Intraday Budget Adjustment — Real-Time Opportunity Exploitation</span>
+              <span class="dc-when">Daily</span>
+              <i class="fas fa-chevron-down dc-chevron"></i>
+            </div>
+            <div class="dc-body open">
+              <div class="dc-row">
+                <span class="dc-row-label">Scenario:</span>
+                <div class="dc-row-content">10:30 AM — Google ROAS 210% (below T-ROAS 250%). Facebook ROAS trending at 420%.</div>
+              </div>
+              <div class="dc-row">
+                <span class="dc-row-label">Action:</span>
+                <div class="dc-row-content">
+                  <div class="action-box warn">
+                    <strong>⏱ Do NOT wait until end-of-day.</strong> Decrease Google bids by 15%, shift available budget to Facebook immediately. Every hour of delay = additional wasted spend.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="decision-card" style="border-radius:var(--radius-md); margin-top:8px;">
+            <div class="dc-trigger" onclick="toggleDC(this)">
+              <span class="dc-trigger-icon" style="color:var(--bear)"><i class="fas fa-siren"></i></span>
+              <span class="dc-trigger-title">Critical Alert Response — Maximum Risk Mitigation</span>
+              <span class="dc-when">Immediate</span>
+              <i class="fas fa-chevron-down dc-chevron"></i>
+            </div>
+            <div class="dc-body">
+              <div class="dc-row">
+                <span class="dc-row-label">Alert:</span>
+                <div class="dc-row-content"><span style="color:var(--bear); font-weight:600;">Campaign ROAS suddenly drops to/below C-ROAS (130%)</span></div>
+              </div>
+              <div class="dc-row">
+                <span class="dc-row-label">Action:</span>
+                <div class="dc-row-content">
+                  <div class="action-box critical">
+                    <strong>⛔ Pause immediately</strong> (if spend > $500). Investigate: 1) Is the tracking pixel still firing? 2) Is the landing page loading correctly? 3) Has the creative gone stale (creative fatigue)? 4) Has the audience been exhausted? → Launch <strong>backup creative</strong> as contingency.
+                  </div>
+                  <div style="margin-top:8px; font-size:12px; color:var(--text-secondary);">💰 <strong style="color:var(--text-primary)">Cost saving: $500–$1,000/day</strong> by acting within the first 2 hours of the drop.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══════════════════════════════
+             DECISION MATRIX
+        ══════════════════════════════ -->
+        <div class="matrix-section" id="matrix">
+          <div style="font-family:var(--font-display); font-size:22px; font-weight:700; margin-bottom:16px; display:flex; align-items:center; gap:10px;">
+            <i class="fas fa-table" style="color:var(--blue)"></i> Final Decision Matrix
+          </div>
+          <div class="chart-card" style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-md); overflow:hidden;">
+            <table class="matrix-table">
+              <thead>
+                <tr>
+                  <th>Scenario</th>
+                  <th>Required Action</th>
+                  <th>Strategic Goal</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="cond-pill cond-bull" style="font-family:var(--font-body); font-size:12px;">ROAS > T-ROAS · Low Spend</span></td>
+                  <td>Increase bids/budget <strong>15–20%</strong> (max 72h) + expand targeting.</td>
+                  <td>Maximize profit from high performers.</td>
+                </tr>
+                <tr>
+                  <td><span class="cond-pill cond-warn" style="font-family:var(--font-body); font-size:12px;">BE-ROAS &lt; ROAS &lt; T-ROAS · High Spend</span></td>
+                  <td>Decrease bids by 15% + narrow targeting. Test new creatives.</td>
+                  <td>Improve efficiency, reduce wasted spend.</td>
+                </tr>
+                <tr>
+                  <td><span class="cond-pill cond-bear" style="font-family:var(--font-body); font-size:12px;">ROAS &lt; C-ROAS · Spend > $500</span></td>
+                  <td><strong>PAUSE IMMEDIATELY.</strong> Investigate root cause. Launch backup creative.</td>
+                  <td>Stop budget leakage. Save $500–$1K/day.</td>
+                </tr>
+                <tr>
+                  <td><span class="cond-pill cond-bull" style="font-family:var(--font-body); font-size:12px;">High CAC · High LTV (LTV:CAC > Target)</span></td>
+                  <td><strong>CONTINUE ACQUIRING.</strong> These are premium customers.</td>
+                  <td>Focus on customer quality over quantity.</td>
+                </tr>
+                <tr>
+                  <td><span class="cond-pill cond-bear" style="font-family:var(--font-body); font-size:12px;">Low CAC · Low LTV</span></td>
+                  <td><strong>STOP.</strong> Acquiring low-value customers dilutes avg. LTV.</td>
+                  <td>Protect overall portfolio quality.</td>
+                </tr>
+                <tr>
+                  <td><span class="cond-pill cond-warn" style="font-family:var(--font-body); font-size:12px;">Creative Fatigue — Sudden ROAS/CTR drop</span></td>
+                  <td>Launch <strong>backup creative</strong> immediately. Allocate 20% budget to new creative testing.</td>
+                  <td>Recovery time &lt; 24 hours.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ══════════════════════════════
+             FREQUENCY GUIDE
+        ══════════════════════════════ -->
+        <div id="frequency">
+          <div style="font-family:var(--font-display); font-size:22px; font-weight:700; margin-bottom:16px; display:flex; align-items:center; gap:10px;">
+            <i class="fas fa-clock" style="color:var(--purple)"></i> Decision Frequency Guide
+          </div>
+          <div class="freq-grid">
+            <div class="freq-card daily">
+              <div class="freq-card-title"><i class="fas fa-fire"></i> Daily (Page 4)</div>
+              <div class="freq-items">
+                <div class="freq-item">
+                  <span class="freq-time">08:00</span>
+                  <span class="freq-desc">Review overnight performance. Adjust bids & budgets based on yesterday's final ROAS.</span>
+                </div>
+                <div class="freq-item">
+                  <span class="freq-time">12:00</span>
+                  <span class="freq-desc">Check morning campaigns. Pause underperformers that crossed C-ROAS threshold.</span>
+                </div>
+                <div class="freq-item">
+                  <span class="freq-time">16:00</span>
+                  <span class="freq-desc">Optimize for evening traffic patterns. Increase bids on channels with strong afternoon ROAS.</span>
+                </div>
+              </div>
+            </div>
+            <div class="freq-card weekly">
+              <div class="freq-card-title"><i class="fas fa-calendar-week"></i> Weekly (Pages 1+2)</div>
+              <div class="freq-items">
+                <div class="freq-item">
+                  <span class="freq-time">Mon</span>
+                  <span class="freq-desc">Review full-week performance. Plan A/B tests for the week. Identify creative fatigue.</span>
+                </div>
+                <div class="freq-item">
+                  <span class="freq-time">Wed</span>
+                  <span class="freq-desc">Analyze campaign trends. Scale winners confirmed over 14+ days. Launch lookalike audiences.</span>
+                </div>
+                <div class="freq-item">
+                  <span class="freq-time">Fri</span>
+                  <span class="freq-desc">Budget reallocation across channels. Prepare creative refresh for next week.</span>
+                </div>
+              </div>
+            </div>
+            <div class="freq-card monthly">
+              <div class="freq-card-title"><i class="fas fa-calendar-alt"></i> Monthly (Page 3)</div>
+              <div class="freq-items">
+                <div class="freq-item">
+                  <span class="freq-time">Wk 1</span>
+                  <span class="freq-desc">Review LTV trends by channel and cohort. Adjust acquisition channel budget allocations.</span>
+                </div>
+                <div class="freq-item">
+                  <span class="freq-time">Wk 2</span>
+                  <span class="freq-desc">Analyze retention data. Plan loyalty program updates. Identify high-value customer segments.</span>
+                </div>
+                <div class="freq-item">
+                  <span class="freq-time">Wk 4</span>
+                  <span class="freq-desc">Strategic shifts & product roadmap decisions. Partnership evaluations. OKR review.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /.cc-content -->
+    </div><!-- /.cc-layout -->
+  </div><!-- /.main-wrapper -->
+
+  <!-- ═══════════════════════════════════════════════
+       JAVASCRIPT
+  ═══════════════════════════════════════════════ -->
+  <script>
+    /* ─── Collapse / Expand Decision Cards ─── */
+    function toggleDC(trigger) {
+      const body = trigger.nextElementSibling;
+      const isOpen = body.classList.contains('open');
+      body.classList.toggle('open', !isOpen);
+      trigger.classList.toggle('open', !isOpen);
+    }
+
+    /* ─── TOC Active State ─── */
+    function setToc(el) {
+      document.querySelectorAll('.toc-item').forEach(i => i.classList.remove('active'));
+      el.classList.add('active');
+    }
+
+    /* ─── Thresholds (editable) ─── */
+    const thresholds = { c: 130, be: 180, t: 250, spend: 500 };
+    function editThreshold(type) {
+      const labels = { c: 'C-ROAS (%)', be: 'BE-ROAS (%)', t: 'T-ROAS (%)', spend: 'Min Spend ($)' };
+      const val = prompt(`Enter new ${labels[type]}:`, thresholds[type]);
+      if (val && !isNaN(val) && Number(val) > 0) {
+        thresholds[type] = Number(val);
+        document.getElementById('cRoasDisplay').textContent  = thresholds.c + '%';
+        document.getElementById('beRoasDisplay').textContent = thresholds.be + '%';
+        document.getElementById('tRoasDisplay').textContent  = thresholds.t + '%';
+        document.getElementById('beSpendDisplay').textContent = '$' + thresholds.spend;
+        calculate(); // Recalculate with new thresholds
+      }
+    }
+
+    /* ─── ROAS Calculator ─── */
+    function calculate() {
+      const spend   = parseFloat(document.getElementById('calcSpend').value)   || 0;
+      const revenue = parseFloat(document.getElementById('calcRevenue').value) || 0;
+      const days    = parseFloat(document.getElementById('calcDays').value)    || 0;
+      const ltv     = parseFloat(document.getElementById('calcLtv').value)     || 0;
+
+      if (!spend || !revenue) {
+        document.getElementById('calcVerdict').style.display = 'none';
+        return;
+      }
+
+      const roas    = (revenue / spend) * 100;
+      const profit  = revenue - spend;
+      const cac     = ltv > 0 ? spend / (revenue / ltv) : 0;
+      const ltvCac  = ltv > 0 && cac > 0 ? ltv / cac : 0;
+
+      // Display results
+      document.getElementById('calcRoasResult').textContent = roas.toFixed(0) + '%';
+      document.getElementById('calcProfitResult').textContent = profit > 0 ? '+$' + profit.toFixed(0) : '-$' + Math.abs(profit).toFixed(0);
+      document.getElementById('calcCacResult').textContent = cac > 0 ? '$' + cac.toFixed(0) : '—';
+      document.getElementById('calcLtvCacResult').textContent = ltvCac > 0 ? ltvCac.toFixed(1) + '×' : '—';
+
+      // Color profit box
+      const profitBox = document.getElementById('calcProfitBox');
+      profitBox.className = 'calc-result-item ' + (profit > 0 ? 'bull' : 'bear');
+      document.getElementById('calcProfitResult').style.color = '';
+
+      // Verdict
+      const verdictEl = document.getElementById('calcVerdict');
+      verdictEl.style.display = 'block';
+
+      const spendOk = spend >= thresholds.spend;
+
+      if (roas >= thresholds.t) {
+        verdictEl.style.cssText = 'background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.3); color:#10b981; border-radius:6px; padding:12px 16px; margin-top:12px; font-size:13px; font-weight:500; text-align:center;';
+        verdictEl.innerHTML = `✅ <strong>SCALE</strong> — ROAS ${roas.toFixed(0)}% exceeds T-ROAS (${thresholds.t}%). Increase budget +15–20% every 48–72h. Create lookalike audiences.`;
+      } else if (roas >= thresholds.be) {
+        verdictEl.style.cssText = 'background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.3); color:#f59e0b; border-radius:6px; padding:12px 16px; margin-top:12px; font-size:13px; font-weight:500; text-align:center;';
+        verdictEl.innerHTML = `⚠️ <strong>OPTIMIZE</strong> — ROAS ${roas.toFixed(0)}% above BE-ROAS but below T-ROAS (${thresholds.t}%). Reduce bids 15%, test new creatives. Do NOT pause yet.`;
+      } else if (roas >= thresholds.c) {
+        verdictEl.style.cssText = 'background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.3); color:#ef4444; border-radius:6px; padding:12px 16px; margin-top:12px; font-size:13px; font-weight:500; text-align:center;';
+        verdictEl.innerHTML = `🔴 <strong>WARNING</strong> — ROAS ${roas.toFixed(0)}% below BE-ROAS (${thresholds.be}%). ${spendOk ? 'Reduce bids significantly and investigate. If sustained, pause.' : `Only $${spend} spent — not enough data yet. Wait until spend reaches $${thresholds.spend}.`}`;
+      } else {
+        verdictEl.style.cssText = 'background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.5); color:#ef4444; border-radius:6px; padding:12px 16px; margin-top:12px; font-size:13px; font-weight:700; text-align:center;';
+        verdictEl.innerHTML = `⛔ <strong>PAUSE NOW</strong> — ROAS ${roas.toFixed(0)}% is below C-ROAS (${thresholds.c}%). ${spendOk ? `Spend $${spend} exceeds minimum. PAUSE IMMEDIATELY. Investigate tracking, landing page, and creative.` : `Spend $${spend} below minimum $${thresholds.spend}. Wait for more data before pausing.`}`;
+      }
+
+      // Update TOC mini-verdict
+      const tocVerdict = document.getElementById('tocVerdict');
+      if (tocVerdict) {
+        const color = roas >= thresholds.t ? '#10b981' : roas >= thresholds.be ? '#f59e0b' : '#ef4444';
+        const action = roas >= thresholds.t ? '✅ SCALE' : roas >= thresholds.be ? '⚠️ OPTIMIZE' : roas >= thresholds.c ? '🔴 WARNING' : '⛔ PAUSE';
+        tocVerdict.innerHTML = `<span style="color:${color}">${action}</span><br><span style="color:var(--text-muted)">ROAS: ${roas.toFixed(0)}%</span>`;
+      }
+    }
+  </script>
+</body>
+</html>
